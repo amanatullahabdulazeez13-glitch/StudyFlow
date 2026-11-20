@@ -1,498 +1,504 @@
-// ==========================================
-// STUDYFLOW - MAIN APPLICATION
-// ==========================================
 
-const STORAGE_KEY = "studyflow_v2";
+const $ = id => document.getElementById(id);
 
-const defaultState = {
-  tasks: [],
-  name: "Student",
-  petName: "Mochi",
-  xp: 0,
-  level: 1,
-  minutes: 0,
-  completedTasks: 0,
-  focusDates: []
+const todayKey = () => new Date().toISOString().slice(0,10);
+const dateKey = d => {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
 };
 
-let state = loadState();
-let currentFilter = "all";
+const defaultState = {
+  profile:{name:"",school:"",goal:60},
+  tasks:[],
+  cards:[],
+  sessions:[],
+  streak:0,
+  lastStudyDate:"",
+  xp:0,
+  petName:"Study Buddy",
+  dark:false,
+  dailyGoal:60
+};
 
-// ---------- STORAGE ----------
+let state;
+try {
+  state = {...defaultState,...JSON.parse(localStorage.getItem("studyflow2")||"{}")};
+  state.profile={...defaultState.profile,...state.profile};
+  state.tasks=state.tasks||[];
+  state.cards=state.cards||[];
+  state.sessions=state.sessions||[];
+} catch {
+  state={...defaultState};
+}
 
-function loadState() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) return { ...defaultState, ...JSON.parse(saved) };
+function save(){
+  localStorage.setItem("studyflow2",JSON.stringify(state));
+  renderAll();
+}
 
-    // Migrate original StudyFlow data if available
-    const old = localStorage.getItem("studyflow_v1");
-    if (old) {
-      const previous = JSON.parse(old);
-      return {
-        ...defaultState,
-        tasks: previous.tasks || [],
-        minutes: previous.minutes || previous.totalMinutes || 0,
-        completedTasks: previous.completedTasks || 0
-      };
-    }
-  } catch (error) {
-    console.log("Could not load saved data.");
+function scrollToSection(id){
+  document.getElementById(id)?.scrollIntoView({behavior:"smooth"});
+}
+window.scrollToSection=scrollToSection;
+
+const quotes=[
+  ["Small steps every day lead to big results.","Make today count."],
+  ["You don't have to be perfect. Just keep learning.","Progress is progress."],
+  ["Your future self will thank you.","Keep going."],
+  ["Every page you study is a step forward.","You've got this."],
+  ["Dream big. Study smart. Be kind to yourself.","One step at a time."],
+  ["Consistency is more powerful than perfection.","Stay curious."]
+];
+
+function showQuote(){
+  const q=quotes[Math.floor(Math.random()*quotes.length)];
+  $("quote").textContent=q[0];
+  $("quoteAuthor").textContent=q[1];
+}
+
+function taskAdd(e){
+  e.preventDefault();
+  const name=$("taskName").value.trim();
+  if(!name)return;
+  state.tasks.push({
+    id:Date.now()+Math.random(),
+    name,
+    subject:$("taskSubject").value,
+    type:$("taskType").value,
+    date:$("taskDate").value,
+    priority:$("taskPriority").value,
+    done:false,
+    created:todayKey()
+  });
+  $("taskForm").reset();
+  save();
+}
+
+let currentFilter="all";
+
+function renderTasks(){
+  const list=$("taskList");
+  let tasks=[...state.tasks];
+  if(currentFilter==="pending")tasks=tasks.filter(t=>!t.done);
+  if(currentFilter==="completed")tasks=tasks.filter(t=>t.done);
+  tasks.sort((a,b)=>{
+    if(a.done!==b.done)return a.done?1:-1;
+    if(a.date&&b.date)return a.date.localeCompare(b.date);
+    if(a.date)return -1;
+    if(b.date)return 1;
+    return 0;
+  });
+  $("taskCount").textContent=state.tasks.filter(t=>!t.done).length+" remaining";
+  if(!tasks.length){
+    list.innerHTML='<div class="empty">Nothing here yet. Add a task to get started ✨</div>';
+    return;
   }
-
-  return { ...defaultState };
-}
-
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-// ---------- ELEMENTS ----------
-
-const taskForm = document.getElementById("task-form");
-const taskInput = document.getElementById("task-input");
-const taskSubject = document.getElementById("task-subject");
-const taskDate = document.getElementById("task-date");
-const taskList = document.getElementById("task-list");
-const taskCount = document.getElementById("task-count");
-const progressBar = document.getElementById("progress-bar");
-const progressText = document.getElementById("progress-text");
-
-const profileDialog = document.getElementById("profile-dialog");
-const petDialog = document.getElementById("pet-dialog");
-
-let timerInterval = null;
-let timerSeconds = 25 * 60;
-let selectedTimerMinutes = 25;
-let timerRunning = false;
-
-// ---------- TASKS ----------
-
-function renderTasks() {
-  taskList.innerHTML = "";
-
-  let filtered = state.tasks.filter(task => {
-    if (currentFilter === "active") return !task.completed;
-    if (currentFilter === "completed") return task.completed;
-    return true;
-  });
-
-  filtered.sort((a, b) => {
-    if (a.completed !== b.completed) return a.completed ? 1 : -1;
-    if (!a.date) return 1;
-    if (!b.date) return -1;
-    return a.date.localeCompare(b.date);
-  });
-
-  if (filtered.length === 0) {
-    taskList.innerHTML = `
-      <div class="empty-state">
-        <div style="font-size:35px;margin-bottom:10px;">${currentFilter === "completed" ? "🌷" : "📚"}</div>
-        <p>${currentFilter === "completed" ? "No completed tasks yet." : "No tasks here. Add one to get started!"}</p>
+  list.innerHTML=tasks.map(t=>`
+    <div class="task-item ${t.done?"done":""}">
+      <input type="checkbox" ${t.done?"checked":""} onchange="toggleTask('${t.id}')">
+      <div class="task-info">
+        <div class="task-title">${escapeHTML(t.name)}</div>
+        <div class="task-meta">${escapeHTML(t.subject)} · ${escapeHTML(t.type)} ${t.date?"· "+t.date:""} · <span class="${t.priority==="High"?"priority-high":t.priority==="Low"?"priority-low":""}">${escapeHTML(t.priority)} priority</span></div>
       </div>
-    `;
+      <div class="task-actions">
+        <button class="small-btn" onclick="deleteTask('${t.id}')">✕</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function escapeHTML(s){
+  return String(s).replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+function toggleTask(id){
+  const task=state.tasks.find(t=>String(t.id)===String(id));
+  if(!task)return;
+  task.done=!task.done;
+  if(task.done){
+    state.xp+=5;
   }
-
-  filtered.forEach(task => {
-    const item = document.createElement("div");
-    item.className = "task-item" + (task.completed ? " done" : "");
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.className = "task-check";
-    checkbox.checked = task.completed;
-    checkbox.setAttribute("aria-label", "Mark task complete");
-
-    checkbox.addEventListener("change", () => toggleTask(task.id));
-
-    const info = document.createElement("div");
-    info.className = "task-info";
-
-    const title = document.createElement("div");
-    title.className = "task-title";
-    title.textContent = task.title;
-
-    const meta = document.createElement("div");
-    meta.className = "task-meta";
-
-    let metaText = task.subject || "General";
-    if (task.date) metaText += " · Due " + formatDate(task.date);
-    meta.textContent = metaText;
-
-    info.append(title, meta);
-
-    const deleteBtn = document.createElement("button");
-    deleteBtn.className = "delete-task";
-    deleteBtn.textContent = "×";
-    deleteBtn.title = "Delete task";
-    deleteBtn.setAttribute("aria-label", "Delete task");
-
-    deleteBtn.addEventListener("click", () => deleteTask(task.id));
-
-    item.append(checkbox, info, deleteBtn);
-    taskList.appendChild(item);
-  });
-
-  updateTaskStats();
+  save();
 }
 
-function formatDate(dateString) {
-  if (!dateString) return "";
+function deleteTask(id){
+  state.tasks=state.tasks.filter(t=>String(t.id)!==String(id));
+  save();
+}
+window.toggleTask=toggleTask;
+window.deleteTask=deleteTask;
 
-  const date = new Date(dateString + "T00:00:00");
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  });
+function renderCalendar(){
+  const container=$("calendarWeek");
+  const now=new Date();
+  const start=new Date(now);
+  const weekday=(start.getDay()+6)%7;
+  start.setDate(start.getDate()-weekday);
+
+  let days=[];
+  for(let i=0;i<7;i++){
+    let d=new Date(start);
+    d.setDate(start.getDate()+i);
+    days.push(d);
+  }
+  container.innerHTML=days.map(d=>{
+    let k=dateKey(d);
+    let count=state.tasks.filter(t=>t.date===k&&!t.done).length;
+    return `<div class="calendar-day ${k===selectedCalendarDate?"selected":""}" onclick="selectCalendarDate('${k}')">
+      <small>${d.toLocaleDateString(undefined,{weekday:"short"})}</small>
+      <strong>${d.getDate()}</strong>
+      <small>${count?count+" task"+(count>1?"s":""):"—"}</small>
+    </div>`;
+  }).join("");
+  renderCalendarTasks();
 }
 
-taskForm.addEventListener("submit", event => {
-  event.preventDefault();
+let selectedCalendarDate=todayKey();
+function selectCalendarDate(k){
+  selectedCalendarDate=k;
+  renderCalendar();
+}
+window.selectCalendarDate=selectCalendarDate;
 
-  const title = taskInput.value.trim();
-  if (!title) return;
+function renderCalendarTasks(){
+  const tasks=state.tasks.filter(t=>t.date===selectedCalendarDate);
+  $("calendarTasks").innerHTML=`
+    <h3>${selectedCalendarDate===todayKey()?"Today's schedule":selectedCalendarDate}</h3>
+    ${tasks.length?tasks.map(t=>`
+      <div class="calendar-event">${t.done?"✓ ":""}${escapeHTML(t.name)} · ${escapeHTML(t.subject)} · ${escapeHTML(t.type)}</div>
+    `).join(""):'<div class="empty">No tasks scheduled for this day.</div>'}
+  `;
+}
 
-  const task = {
-    id: Date.now() + Math.random(),
-    title,
-    subject: taskSubject.value,
-    date: taskDate.value,
-    completed: false,
-    created: new Date().toISOString()
-  };
-
-  state.tasks.push(task);
-  taskInput.value = "";
-  taskDate.value = "";
-
-  saveState();
-  renderTasks();
-  updatePlanner();
+$("weekToday").addEventListener("click",()=>{
+  selectedCalendarDate=todayKey();
+  renderCalendar();
 });
 
-function toggleTask(id) {
-  const task = state.tasks.find(t => t.id === id);
-  if (!task) return;
+function renderStats(){
+  const completed=state.tasks.filter(t=>t.done).length;
+  const minutes=state.sessions.reduce((s,x)=>s+x.minutes,0);
+  $("completedStat").textContent=completed;
+  $("streakStat").textContent=state.streak+" days";
+  $("minutesStat").textContent=minutes;
+  $("xpStat").textContent=state.xp+" XP";
+}
 
-  task.completed = !task.completed;
+function petLevel(){
+  return Math.floor(state.xp/100)+1;
+}
+function petEmoji(){
+  const level=petLevel();
+  if(level>=10)return "🦄";
+  if(level>=7)return "🐉";
+  if(level>=5)return "🦊";
+  if(level>=3)return "🐱";
+  if(level>=2)return "🐥";
+  return "🐣";
+}
+function renderPet(){
+  let level=petLevel();
+  let xpInLevel=state.xp%100;
+  $("petEmoji").textContent=petEmoji();
+  $("petNameDisplay").textContent=state.petName;
+  $("petLevel").textContent="Level "+level;
+  $("petMood").textContent=level>=10?"Your pet is legendary!":level>=5?"Your pet is thriving!":"Your pet loves learning with you!";
+  $("xpBar").style.width=xpInLevel+"%";
+  $("xpProgress").textContent=xpInLevel+" / 100 XP (Level "+level+")";
+  const rewards=[
+    {level:1,name:"🐣 Starter buddy"},
+    {level:2,name:"🐥 Little chick"},
+    {level:3,name:"🐱 Cat"},
+    {level:5,name:"🦊 Fox"},
+    {level:7,name:"🐉 Dragon"},
+    {level:10,name:"🦄 Unicorn"}
+  ];
+  $("rewardList").innerHTML=rewards.map(r=>
+    `<span class="reward ${level<r.level?"locked":""}">${r.name} ${level>=r.level?"✓":"🔒"}</span>`
+  ).join("");
+}
 
-  if (task.completed) {
-    state.completedTasks++;
-    addXP(10);
+function renderAnalytics(){
+  const days=[];
+  const now=new Date();
+  for(let i=6;i>=0;i--){
+    let d=new Date(now);
+    d.setDate(now.getDate()-i);
+    let k=dateKey(d);
+    let minutes=state.sessions.filter(s=>s.date===k).reduce((sum,s)=>sum+s.minutes,0);
+    days.push({label:d.toLocaleDateString(undefined,{weekday:"short"}),minutes});
   }
+  const max=Math.max(1,...days.map(d=>d.minutes));
+  $("weeklyChart").innerHTML=days.map(d=>`
+    <div class="bar-column">
+      <div class="bar-value">${d.minutes}m</div>
+      <div class="bar" style="height:${Math.max(3,d.minutes/max*100)}%"></div>
+      <div class="bar-label">${d.label}</div>
+    </div>
+  `).join("");
 
-  saveState();
-  renderTasks();
-  updatePlanner();
-  updateDashboard();
+  const subjects={};
+  state.sessions.forEach(s=>subjects[s.subject||"General"]=(subjects[s.subject||"General"]||0)+s.minutes);
+  const entries=Object.entries(subjects).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxSubject=Math.max(1,...entries.map(x=>x[1]));
+  $("subjectChart").innerHTML=entries.length?entries.map(([name,m])=>`
+    <div class="subject-row">
+      <div>${escapeHTML(name)} · ${m} minutes</div>
+      <div class="subject-line"><div class="subject-fill" style="width:${m/maxSubject*100}%"></div></div>
+    </div>
+  `).join(""):'<div class="empty">Complete focus sessions to see your subjects.</div>';
+
+  let total=state.sessions.reduce((s,x)=>s+x.minutes,0);
+  let goal=Number(state.profile.goal)||60;
+  let todayMinutes=state.sessions.filter(s=>s.date===todayKey()).reduce((s,x)=>s+x.minutes,0);
+  $("analyticsSummary").innerHTML=`
+    <div class="summary-chip">📚 Total: ${total} minutes</div>
+    <div class="summary-chip">🎯 Daily goal: ${todayMinutes}/${goal} minutes</div>
+    <div class="summary-chip">✔ Tasks: ${state.tasks.filter(t=>t.done).length}</div>
+  `;
 }
 
-function deleteTask(id) {
-  state.tasks = state.tasks.filter(t => t.id !== id);
-  saveState();
-  renderTasks();
-  updatePlanner();
+function renderDeadlines(){
+  const upcoming=state.tasks.filter(t=>!t.done&&t.date).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!upcoming.length){
+    $("deadlineList").innerHTML='<div class="empty">No upcoming deadlines. Add a dated task to see it here.</div>';
+    return;
+  }
+  $("deadlineList").innerHTML=upcoming.slice(0,10).map(t=>{
+    const overdue=t.date<todayKey();
+    return `<div class="deadline ${overdue?"overdue":""}">
+      <div><strong>${escapeHTML(t.name)}</strong><div class="task-meta">${escapeHTML(t.subject)} · ${escapeHTML(t.type)}</div></div>
+      <div>${t.date}${overdue?" ⚠️":""}</div>
+    </div>`;
+  }).join("");
 }
 
-function updateTaskStats() {
-  const total = state.tasks.length;
-  const completed = state.tasks.filter(t => t.completed).length;
-
-  taskCount.textContent = `${total} task${total === 1 ? "" : "s"}`;
-
-  const percent = total ? Math.round((completed / total) * 100) : 0;
-  progressBar.style.width = percent + "%";
-  progressText.textContent = percent + "%";
-
-  document.getElementById("completed-stat").textContent = completed;
+function renderCards(){
+  const area=$("flashcardArea");
+  if(!state.cards.length){
+    area.innerHTML='<div class="empty">Create your first flashcard above ✨</div>';
+    return;
+  }
+  area.innerHTML=state.cards.map(c=>`
+    <div class="flashcard" onclick="flipCard('${c.id}')">
+      <div class="card-label">${escapeHTML(c.subject)} · Click to flip</div>
+      <div class="card-text" id="cardText${c.id}">${escapeHTML(c.question)}</div>
+      <div class="flashcard-actions">
+        <button class="small-btn" onclick="event.stopPropagation();deleteCard('${c.id}')">Delete</button>
+        <span class="card-label">↻ Flip</span>
+      </div>
+    </div>
+  `).join("");
 }
 
-document.querySelectorAll(".filter").forEach(button => {
-  button.addEventListener("click", () => {
-    document.querySelectorAll(".filter").forEach(b => b.classList.remove("active"));
-    button.classList.add("active");
+function flipCard(id){
+  let c=state.cards.find(x=>String(x.id)===String(id));
+  if(!c)return;
+  c.flipped=!c.flipped;
+  const el=$("cardText"+id);
+  if(el)el.textContent=c.flipped?c.answer:c.question;
+}
+function deleteCard(id){
+  state.cards=state.cards.filter(c=>String(c.id)!==String(id));
+  save();
+}
+window.flipCard=flipCard;
+window.deleteCard=deleteCard;
 
-    currentFilter = button.dataset.filter;
+$("cardForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  state.cards.push({
+    id:Date.now(),
+    subject:$("cardSubject").value.trim(),
+    question:$("cardQuestion").value.trim(),
+    answer:$("cardAnswer").value.trim(),
+    flipped:false
+  });
+  $("cardForm").reset();
+  save();
+});
+
+$("taskForm").addEventListener("submit",taskAdd);
+document.querySelectorAll(".filter").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    currentFilter=btn.dataset.filter;
+    document.querySelectorAll(".filter").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
     renderTasks();
   });
 });
 
-// ---------- SMART PLANNER ----------
+$("profileBtn").addEventListener("click",()=>{
+  $("profileName").value=state.profile.name||"";
+  $("profileSchool").value=state.profile.school||"";
+  $("dailyGoal").value=state.profile.goal||60;
+  $("profileDialog").showModal();
+});
+$("closeProfile").addEventListener("click",()=>$("profileDialog").close());
+$("saveProfile").addEventListener("click",()=>{
+  state.profile.name=$("profileName").value.trim();
+  state.profile.school=$("profileSchool").value.trim();
+  state.profile.goal=Math.max(1,Number($("dailyGoal").value)||60);
+  $("profileDialog").close();
+  save();
+});
 
-function updatePlanner() {
-  const result = document.getElementById("planner-result");
-  const pending = state.tasks.filter(t => !t.completed);
+$("petNameBtn").addEventListener("click",()=>$("petDialog").showModal());
+$("closePetDialog").addEventListener("click",()=>$("petDialog").close());
+$("savePetName").addEventListener("click",()=>{
+  state.petName=$("newPetName").value.trim()||"Study Buddy";
+  $("petDialog").close();
+  save();
+});
 
-  if (pending.length === 0) {
-    result.innerHTML = "<p>You're all caught up! Add a task whenever you're ready. ✨</p>";
-    return;
-  }
+$("themeToggle").addEventListener("click",()=>{
+  state.dark=!state.dark;
+  save();
+});
 
-  result.innerHTML = `<p>You have <strong>${pending.length}</strong> pending task${pending.length === 1 ? "" : "s"}.</p>`;
+function renderTheme(){
+  document.body.classList.toggle("dark",state.dark);
+  $("themeToggle").textContent=state.dark?"☀️":"🌙";
 }
 
-document.getElementById("plan-btn").addEventListener("click", createPlan);
+function renderWelcome(){
+  $("welcome").textContent=state.profile.name
+    ?"Welcome back, "+state.profile.name+" ✨"
+    :"Welcome to StudyFlow ✨";
+}
 
-function createPlan() {
-  const result = document.getElementById("planner-result");
-  const pending = state.tasks.filter(t => !t.completed);
+let timerSeconds=25*60;
+let timerRunning=false;
+let timerInterval=null;
+let timerSessionMinutes=25;
+let timerSessionLabel="Focus session";
 
-  pending.sort((a, b) => {
-    if (!a.date && !b.date) return 0;
-    if (!a.date) return 1;
-    if (!b.date) return -1;
-    return a.date.localeCompare(b.date);
+function updateTimer(){
+  $("timerDisplay").textContent=
+    String(Math.floor(timerSeconds/60)).padStart(2,"0")+":"+
+    String(timerSeconds%60).padStart(2,"0");
+}
+
+document.querySelectorAll(".timer-select").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    stopTimer();
+    timerSessionMinutes=Number(btn.dataset.minutes);
+    timerSessionLabel=btn.dataset.label;
+    timerSeconds=timerSessionMinutes*60;
+    $("timerMode").textContent=timerSessionLabel;
+    document.querySelectorAll(".timer-select").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    updateTimer();
   });
-
-  if (pending.length === 0) {
-    result.innerHTML = `<div class="empty-state">🎉 You're all caught up! Add a task to make a new plan.</div>`;
-    return;
-  }
-
-  let html = `<h3>Your suggested order</h3><ol>`;
-
-  pending.forEach(task => {
-    const dateLabel = task.date
-      ? ` <span class="plan-date">(${formatDate(task.date)})</span>`
-      : ` <span class="plan-date">(No deadline)</span>`;
-
-    html += `<li><strong>${escapeHTML(task.title)}</strong> — ${escapeHTML(task.subject || "General")}${dateLabel}</li>`;
-  });
-
-  html += `</ol>`;
-  html += `<p>Start with the task at the top. Take breaks and work at your own pace. ✨</p>`;
-
-  result.innerHTML = html;
-}
-
-function escapeHTML(value) {
-  return String(value).replace(/[&<>"']/g, char => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;"
-  }[char]));
-}
-
-// ---------- PROFILE ----------
-
-function updateProfile() {
-  const name = state.name || "Student";
-  document.getElementById("profile-name").textContent = name;
-  document.getElementById("greeting").textContent = `Welcome back, ${name}!`;
-  document.getElementById("edit-profile").textContent = name.charAt(0).toUpperCase();
-}
-
-document.getElementById("edit-profile").addEventListener("click", () => {
-  document.getElementById("name-input").value = state.name === "Student" ? "" : state.name;
-  profileDialog.showModal();
 });
 
-document.getElementById("cancel-profile").addEventListener("click", () => {
-  profileDialog.close();
-});
-
-document.getElementById("save-profile").addEventListener("click", () => {
-  const newName = document.getElementById("name-input").value.trim();
-  if (newName) state.name = newName;
-
-  saveState();
-  updateProfile();
-  profileDialog.close();
-});
-
-// ---------- STUDY PET ----------
-
-function addXP(amount) {
-  state.xp += amount;
-
-  while (state.xp >= 60) {
-    state.xp -= 60;
-    state.level++;
-  }
-
-  saveState();
-  updatePet();
-}
-
-function updatePet() {
-  document.getElementById("pet-name").textContent = state.petName;
-  document.getElementById("pet-level").textContent = state.level;
-  document.getElementById("level-stat").textContent = state.level;
-  document.getElementById("pet-xp").textContent = state.xp;
-  document.getElementById("xp-stat").textContent = `${state.xp} XP`;
-  document.getElementById("xp-bar").style.width = (state.xp / 60 * 100) + "%";
-
-  const messages = [
-    "I'm ready to study with you!",
-    "You're doing great! Let's keep going!",
-    "Yay! I love learning with you!",
-    "We're making progress together!",
-    "Every little step counts!"
-  ];
-
-  document.getElementById("pet-message").textContent =
-    messages[Math.floor(Math.random() * messages.length)];
-
-  const pets = ["🐰", "🐱", "🐼", "🦊", "🐻", "🐸", "🐹", "🐧"];
-  document.getElementById("pet-emoji").textContent = pets[(state.level - 1) % pets.length];
-}
-
-document.getElementById("rename-pet").addEventListener("click", () => {
-  document.getElementById("pet-name-input").value = state.petName;
-  petDialog.showModal();
-});
-
-document.getElementById("cancel-pet").addEventListener("click", () => {
-  petDialog.close();
-});
-
-document.getElementById("save-pet").addEventListener("click", () => {
-  const newName = document.getElementById("pet-name-input").value.trim();
-  if (newName) state.petName = newName;
-
-  saveState();
-  updatePet();
-  petDialog.close();
-});
-
-// ---------- STREAK ----------
-
-function localDateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function calculateStreak() {
-  const dates = [...new Set(state.focusDates)].sort().reverse();
-
-  if (!dates.length) return 0;
-
-  const today = localDateKey();
-  const yesterdayDate = new Date();
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterday = localDateKey(yesterdayDate);
-
-  if (dates[0] !== today && dates[0] !== yesterday) return 0;
-
-  let streak = 0;
-  let checkDate = new Date(dates[0] + "T00:00:00");
-
-  for (const date of dates) {
-    if (date !== localDateKey(checkDate)) break;
-
-    streak++;
-    checkDate.setDate(checkDate.getDate() - 1);
-  }
-
-  return streak;
-}
-
-// ---------- FOCUS TIMER ----------
-
-function updateTimerDisplay() {
-  const minutes = Math.floor(timerSeconds / 60);
-  const seconds = timerSeconds % 60;
-
-  document.getElementById("timer-display").textContent =
-    `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-function stopTimer() {
+function stopTimer(){
+  timerRunning=false;
   clearInterval(timerInterval);
-  timerInterval = null;
-  timerRunning = false;
-  document.getElementById("timer-start").textContent = "▶ Start";
+  $("timerStart").textContent="▶ Start";
 }
 
-function startTimer() {
-  if (timerRunning) {
+$("timerStart").addEventListener("click",()=>{
+  if(timerRunning){
     stopTimer();
     return;
   }
-
-  timerRunning = true;
-  document.getElementById("timer-start").textContent = "Ⅱ Pause";
-
-  timerInterval = setInterval(() => {
+  timerRunning=true;
+  $("timerStart").textContent="⏸ Pause";
+  timerInterval=setInterval(()=>{
     timerSeconds--;
-    updateTimerDisplay();
-
-    if (timerSeconds <= 0) {
+    updateTimer();
+    if(timerSeconds<=0){
       stopTimer();
-
-      if (selectedTimerMinutes === 25) {
-        completeFocusSession();
-      }
-
-      alert("Timer finished! Great job! 🎉");
-      timerSeconds = selectedTimerMinutes * 60;
-      updateTimerDisplay();
+      timerComplete();
     }
-  }, 1000);
-}
-
-function completeFocusSession() {
-  state.minutes += 25;
-
-  const today = localDateKey();
-  if (!state.focusDates.includes(today)) {
-    state.focusDates.push(today);
-  }
-
-  addXP(20);
-  saveState();
-  updateDashboard();
-}
-
-document.getElementById("timer-start").addEventListener("click", startTimer);
-
-document.getElementById("timer-reset").addEventListener("click", () => {
+  },1000);
+});
+$("timerReset").addEventListener("click",()=>{
   stopTimer();
-  timerSeconds = selectedTimerMinutes * 60;
-  updateTimerDisplay();
+  timerSeconds=timerSessionMinutes*60;
+  updateTimer();
 });
 
-document.querySelectorAll(".timer-mode").forEach(button => {
-  button.addEventListener("click", () => {
-    stopTimer();
+function timerComplete(){
+  if(timerSessionMinutes===25){
+    recordStudy(25);
+    alert("Focus session complete! 🎉 You earned 25 study minutes and 25 XP!");
+  }else{
+    alert("Break time is over! Ready for your next session?");
+  }
+  timerSeconds=timerSessionMinutes*60;
+  updateTimer();
+}
 
-    document.querySelectorAll(".timer-mode").forEach(b => b.classList.remove("active"));
-    button.classList.add("active");
+function recordStudy(minutes){
+  const date=todayKey();
+  state.sessions.push({date,minutes,subject:"General"});
+  state.xp+=minutes;
+  if(state.lastStudyDate!==date){
+    const yesterday=new Date();
+    yesterday.setDate(yesterday.getDate()-1);
+    state.streak=state.lastStudyDate===dateKey(yesterday)?state.streak+1:1;
+    state.lastStudyDate=date;
+  }
+  save();
+}
 
-    selectedTimerMinutes = Number(button.dataset.minutes);
-    timerSeconds = selectedTimerMinutes * 60;
+$("notificationBtn").addEventListener("click",async()=>{
+  if(!("Notification" in window)){
+    alert("Notifications are not supported by this browser.");
+    return;
+  }
+  if(Notification.permission==="granted"){
+    alert("Reminders are already enabled!");
+    checkReminders();
+    return;
+  }
+  if(Notification.permission==="denied"){
+    alert("Notifications are blocked by your browser settings. You can change that in browser site settings.");
+    return;
+  }
+  const result=await Notification.requestPermission();
+  if(result==="granted"){
+    alert("Reminders enabled! Keep StudyFlow open to check deadlines.");
+    checkReminders();
+  }
+});
 
-    document.getElementById("timer-label").textContent =
-      selectedTimerMinutes === 25 ? "Focus session" :
-      selectedTimerMinutes === 15 ? "Short session" : "Break";
-
-    updateTimerDisplay();
+function checkReminders(){
+  if(!("Notification" in window)||Notification.permission!=="granted")return;
+  const today=todayKey();
+  state.tasks.filter(t=>!t.done&&t.date===today).forEach(t=>{
+    const reminderKey="studyflow-reminder-"+today+"-"+t.id;
+    if(!localStorage.getItem(reminderKey)){
+      new Notification("StudyFlow deadline reminder",{body:t.name+" · "+t.subject});
+      localStorage.setItem(reminderKey,"yes");
+    }
   });
-});
-
-// ---------- DASHBOARD ----------
-
-function updateDashboard() {
-  document.getElementById("minutes-stat").textContent = state.minutes;
-  document.getElementById("streak-stat").textContent = calculateStreak();
-  document.getElementById("completed-stat").textContent =
-    state.tasks.filter(t => t.completed).length;
 }
 
-// ---------- INITIALIZATION ----------
-
-function initialize() {
-  updateProfile();
-  updatePet();
-  updateDashboard();
+function renderAll(){
+  renderTheme();
+  renderWelcome();
   renderTasks();
-  updatePlanner();
-  updateTimerDisplay();
+  renderCalendar();
+  renderStats();
+  renderPet();
+  renderAnalytics();
+  renderDeadlines();
+  renderCards();
 }
 
-initialize();
+showQuote();
+renderAll();
+updateTimer();
+checkReminders();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("./service-worker.js")
+      .catch(err=>console.log("Service worker registration failed",err));
+  });
+}
