@@ -1,11 +1,7 @@
 
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="120" fill="#7c63e8"/>
-  <rect x="110" y="105" width="292" height="302" rx="35" fill="#ffffff"/>
-  <path d="M256 160 L256 345" stroke="#a28cf6" stroke-width="16" stroke-linecap="round"/>
-  <path d="M150 155 Q210 135 256 165 L256 345 Q210 310 150 330 Z" fill="#eee9ff" stroke="#7c63e8" stroke-width="10"/>
-  <path d="M362 155 Q302 135 256 165 L256 345 Q302 310 362 330 Z" fill="#eee9ff" stroke="#7c63e8" stroke-width="10"/>
-  <path d="M180 200 L225 210 M180 235 L225 245 M287 210 L332 200 M287 245 L332 235" stroke="#a28cf6" stroke-width="12" stroke-linecap="round"/>
-  <circle cx="380" cy="110" r="40" fill="#f9d77e"/>
-  <path d="M380 82 L388 103 L410 110 L388 117 L380 138 L372 117 L350 110 L372 103 Z" fill="#ffffff"/>
+  <rect width="512" height="512" rx="120" fill="#7665df"/>
+  <path d="M256 115C205 80 125 85 90 110V355C140 325 205 330 256 365C307 330 372 325 422 355V110C387 85 307 80 256 115Z" fill="#ffffff"/>
+  <path d="M256 115V365" stroke="#b8aaff" stroke-width="15"/>
+  <path d="M125 160C170 145 215 155 235 170M125 200C170 185 215 195 235 210M125 240C170 225 215 235 235 250M277 170C310 155 355 145 387 160M277 210C310 195 355 185 387 200M277 250C310 235 355 225 387 240" stroke="#7665df" stroke-width="12" stroke-linecap="round"/>
 </svg>

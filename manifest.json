@@ -1,14 +1,15 @@
 
+
 {
   "name": "StudyFlow",
   "short_name": "StudyFlow",
-  "description": "Your personal study planner and learning companion.",
+  "description": "Your personal study planner",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "background_color": "#f6f5fc",
+  "theme_color": "#7665df",
   "orientation": "portrait",
-  "background_color": "#f7f5fc",
-  "theme_color": "#7c63e8",
   "icons": [
     {
       "src": "icon.svg",

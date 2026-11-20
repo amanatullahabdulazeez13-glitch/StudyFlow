@@ -4,202 +4,285 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#7c63e8">
+  <meta name="theme-color" content="#7564df">
+  <meta name="description" content="StudyFlow - Your personal study planner">
   <title>StudyFlow</title>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg">
 </head>
 <body>
-  <div class="app-shell">
-    <aside class="sidebar">
-      <div class="brand"><span class="brand-icon">✦</span> StudyFlow</div>
-      <div class="nav-label">MENU</div>
-      <nav>
-        <a href="#dashboard" class="nav-item active">⌂ Dashboard</a>
-        <a href="#tasks" class="nav-item">▤ My Tasks</a>
-        <a href="#calendar" class="nav-item">▦ Calendar</a>
-        <a href="#analytics" class="nav-item">◴ Analytics</a>
-        <a href="#flashcards" class="nav-item">▣ Flashcards</a>
-        <a href="#focus" class="nav-item">◷ Focus Room</a>
-      </nav>
-      <div class="sidebar-bottom">
-        <div class="pet-mini">🐱</div>
-        <div><strong>Your study buddy</strong><p>Keep growing together!</p></div>
-      </div>
-    </aside>
 
-    <main class="main">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">YOUR STUDY SPACE</p>
-          <h1 id="welcome">Welcome to StudyFlow ✨</h1>
-        </div>
-        <div class="top-actions">
-          <button id="themeToggle" class="icon-btn" title="Toggle dark mode">🌙</button>
-          <button id="profileBtn" class="profile-chip">👤 Profile</button>
-        </div>
-      </header>
-
-      <section id="dashboard">
-        <div class="hero">
-          <div>
-            <p class="eyebrow">YOUR DAILY INSPIRATION</p>
-            <h2 id="quote">Small steps every day lead to big results.</h2>
-            <p id="quoteAuthor">Make today count.</p>
-            <button class="primary-btn" onclick="scrollToSection('tasks')">Let's study ✦</button>
-          </div>
-          <div class="hero-art">📚✨</div>
-        </div>
-
-        <div class="stats-grid">
-          <div class="stat-card"><span>📚</span><p>Tasks completed</p><h2 id="completedStat">0</h2></div>
-          <div class="stat-card"><span>🔥</span><p>Study streak</p><h2 id="streakStat">0 days</h2></div>
-          <div class="stat-card"><span>⏱</span><p>Study minutes</p><h2 id="minutesStat">0</h2></div>
-          <div class="stat-card"><span>⭐</span><p>Pet XP</p><h2 id="xpStat">0 XP</h2></div>
-        </div>
-      </section>
-
-      <section class="section-card" id="tasks">
-        <div class="section-heading">
-          <div><p class="eyebrow">STAY ORGANIZED</p><h2>My Tasks</h2></div>
-          <span id="taskCount" class="pill">0 tasks</span>
-        </div>
-        <form id="taskForm" class="task-form">
-          <input id="taskName" placeholder="What do you need to do?" required>
-          <select id="taskSubject">
-            <option>Mathematics</option><option>English</option><option>Science</option>
-            <option>Biology</option><option>Chemistry</option><option>Physics</option>
-            <option>Economics</option><option>Geography</option><option>History</option>
-            <option>Computer Science</option><option>Other</option>
-          </select>
-          <select id="taskType">
-            <option value="Assignment">Assignment</option>
-            <option value="Test">Test</option>
-            <option value="Study">Study</option>
-            <option value="Project">Project</option>
-          </select>
-          <input id="taskDate" type="date">
-          <select id="taskPriority">
-            <option value="Medium">Medium priority</option>
-            <option value="High">High priority</option>
-            <option value="Low">Low priority</option>
-          </select>
-          <button class="primary-btn" type="submit">+ Add task</button>
-        </form>
-        <div class="filters">
-          <button class="filter active" data-filter="all">All</button>
-          <button class="filter" data-filter="pending">Pending</button>
-          <button class="filter" data-filter="completed">Completed</button>
-        </div>
-        <div id="taskList" class="task-list"></div>
-      </section>
-
-      <section class="section-card" id="calendar">
-        <div class="section-heading">
-          <div><p class="eyebrow">PLAN YOUR WEEK</p><h2>Weekly Calendar</h2></div>
-          <button id="weekToday" class="soft-btn">This week</button>
-        </div>
-        <div id="calendarWeek" class="calendar-week"></div>
-        <div id="calendarTasks" class="calendar-tasks"></div>
-      </section>
-
-      <section class="section-card" id="focus">
-        <div class="section-heading">
-          <div><p class="eyebrow">FOCUS & GROW</p><h2>Focus Room</h2></div>
-        </div>
-        <div class="focus-panel">
-          <div id="timerMode" class="timer-mode">Focus session</div>
-          <div id="timerDisplay" class="timer">25:00</div>
-          <div class="timer-controls">
-            <button class="primary-btn" id="timerStart">▶ Start</button>
-            <button class="soft-btn" id="timerReset">↺ Reset</button>
-          </div>
-          <div class="timer-modes">
-            <button data-minutes="25" data-label="Focus session" class="timer-select active">Focus 25m</button>
-            <button data-minutes="15" data-label="Short break" class="timer-select">Break 15m</button>
-            <button data-minutes="5" data-label="Quick break" class="timer-select">Break 5m</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="section-card" id="pet">
-        <div class="section-heading">
-          <div><p class="eyebrow">YOUR COMPANION</p><h2>Study Pet</h2></div>
-        </div>
-        <div class="pet-panel">
-          <div id="petEmoji" class="pet-emoji">🐣</div>
-          <div class="pet-info">
-            <h2 id="petNameDisplay">Study Buddy</h2>
-            <p id="petLevel">Level 1</p>
-            <p id="petMood">Your pet is ready to learn with you!</p>
-            <div class="xp-track"><div id="xpBar" class="xp-bar"></div></div>
-            <p id="xpProgress">0 / 100 XP</p>
-            <button id="petNameBtn" class="soft-btn">Rename pet</button>
-          </div>
-        </div>
-        <div class="rewards">
-          <h3>Rewards</h3>
-          <div id="rewardList"></div>
-        </div>
-      </section>
-
-      <section class="section-card" id="analytics">
-        <div class="section-heading">
-          <div><p class="eyebrow">SEE YOUR PROGRESS</p><h2>Study Analytics</h2></div>
-        </div>
-        <div class="analytics-grid">
-          <div class="chart-card"><h3>Weekly study time</h3><div id="weeklyChart" class="bars"></div></div>
-          <div class="chart-card"><h3>Subjects studied</h3><div id="subjectChart" class="subject-chart"></div></div>
-        </div>
-        <div class="analytics-summary" id="analyticsSummary"></div>
-      </section>
-
-      <section class="section-card" id="flashcards">
-        <div class="section-heading">
-          <div><p class="eyebrow">MEMORIZE & PRACTICE</p><h2>Flashcards</h2></div>
-        </div>
-        <form id="cardForm" class="flash-form">
-          <input id="cardSubject" placeholder="Subject" required>
-          <input id="cardQuestion" placeholder="Front: Question" required>
-          <input id="cardAnswer" placeholder="Back: Answer" required>
-          <button class="primary-btn">Create card</button>
-        </form>
-        <div id="flashcardArea"></div>
-      </section>
-
-      <section class="section-card" id="reminders">
-        <div class="section-heading">
-          <div><p class="eyebrow">NEVER MISS A DEADLINE</p><h2>Upcoming Deadlines</h2></div>
-          <button id="notificationBtn" class="soft-btn">Enable reminders</button>
-        </div>
-        <div id="deadlineList"></div>
-      </section>
-
-      <footer>Made with ✦ for your learning journey.</footer>
-    </main>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-icon">📚</span>
+    <div>
+      <h1>StudyFlow</h1>
+      <small>Your space to succeed</small>
+    </div>
   </div>
+  <div class="top-actions">
+    <button id="themeBtn" class="icon-btn" title="Toggle theme">🌙</button>
+    <button id="notifyBtn" class="icon-btn" title="Enable notifications">🔔</button>
+  </div>
+</header>
 
-  <dialog id="profileDialog">
-    <div class="dialog-content">
-      <h2>Your Profile ✨</h2>
-      <label>Name<input id="profileName" placeholder="Your name"></label>
-      <label>School<input id="profileSchool" placeholder="Your school (optional)"></label>
-      <label>Daily study goal (minutes)<input id="dailyGoal" type="number" min="1" value="60"></label>
-      <button id="saveProfile" class="primary-btn">Save profile</button>
-      <button id="closeProfile" class="soft-btn">Close</button>
+<main class="container">
+
+  <section class="welcome">
+    <div>
+      <p class="eyebrow">YOUR STUDY SPACE</p>
+      <h2 id="welcomeText">Welcome back! ✨</h2>
+      <p id="todayText"></p>
     </div>
-  </dialog>
-
-  <dialog id="petDialog">
-    <div class="dialog-content">
-      <h2>Name your pet</h2>
-      <input id="newPetName" placeholder="Pet name">
-      <button id="savePetName" class="primary-btn">Save</button>
-      <button id="closePetDialog" class="soft-btn">Cancel</button>
+    <div class="profile">
+      <span id="profileAvatar">🎓</span>
+      <input id="profileName" maxlength="30" placeholder="Your name">
     </div>
-  </dialog>
+  </section>
 
-  <script src="script.js"></script>
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>📋</span>
+      <p>Tasks completed</p>
+      <h2 id="completedStat">0</h2>
+    </article>
+    <article class="stat-card">
+      <span>🔥</span>
+      <p>Study streak</p>
+      <h2 id="streakStat">0 days</h2>
+    </article>
+    <article class="stat-card">
+      <span>⏱️</span>
+      <p>Study minutes</p>
+      <h2 id="minutesStat">0</h2>
+    </article>
+    <article class="stat-card">
+      <span>⭐</span>
+      <p>Pet XP</p>
+      <h2 id="xpStat">0 XP</h2>
+    </article>
+  </section>
+
+  <section class="panel daily-goal">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">YOUR DAILY PROGRESS</p>
+        <h2>Daily study goal 🎯</h2>
+      </div>
+      <span id="goalBadge">0%</span>
+    </div>
+    <div class="progress-track">
+      <div id="goalProgressBar" class="progress-fill"></div>
+    </div>
+    <p id="goalProgressText">0 / 60 minutes studied today</p>
+    <div class="goal-setting">
+      <label for="dailyGoal">Daily goal (minutes)</label>
+      <input id="dailyGoal" type="number" min="1" max="1440" value="60">
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">STAY ON TRACK</p>
+        <h2>My tasks ✏️</h2>
+      </div>
+    </div>
+
+    <form id="taskForm" class="task-form">
+      <input id="taskName" placeholder="What do you need to do?" required maxlength="120">
+
+      <div class="form-grid">
+        <select id="taskSubject">
+          <option>Mathematics</option>
+          <option>English</option>
+          <option>Biology</option>
+          <option>Chemistry</option>
+          <option>Physics</option>
+          <option>Economics</option>
+          <option>Geography</option>
+          <option>History</option>
+          <option>Computer Science</option>
+          <option>Other</option>
+        </select>
+
+        <select id="taskType">
+          <option value="Assignment">Assignment</option>
+          <option value="Test">Test</option>
+          <option value="Exam">Exam</option>
+          <option value="Revision">Revision</option>
+          <option value="Project">Project</option>
+          <option value="Other">Other</option>
+        </select>
+
+        <select id="taskPriority">
+          <option value="Medium">Medium priority</option>
+          <option value="High">High priority</option>
+          <option value="Low">Low priority</option>
+        </select>
+
+        <input id="taskDate" type="date">
+      </div>
+
+      <button type="submit" class="primary-btn" id="taskSubmit">＋ Add task</button>
+    </form>
+
+    <div class="search-box">
+      <input id="taskSearch" placeholder="🔎 Search tasks or subjects...">
+    </div>
+
+    <div class="filters">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="active">Pending</button>
+      <button class="filter-btn" data-filter="done">Completed</button>
+    </div>
+
+    <div id="taskList"></div>
+    <p id="emptyTasks" class="empty-state">Your tasks will appear here. 🌸</p>
+  </section>
+
+  <section class="panel">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">PLAN AHEAD</p>
+        <h2>Study calendar 🗓️</h2>
+      </div>
+    </div>
+    <div class="calendar-header">
+      <button id="prevMonth" class="soft-btn">←</button>
+      <h3 id="calendarMonth"></h3>
+      <button id="nextMonth" class="soft-btn">→</button>
+    </div>
+    <div id="calendarGrid" class="calendar-grid"></div>
+    <div id="calendarTasks" class="calendar-tasks"></div>
+  </section>
+
+  <section class="panel focus-panel">
+    <p class="eyebrow">TIME TO CONCENTRATE</p>
+    <h2>Focus Room 🧠</h2>
+    <p>Choose a subject and give it your full attention.</p>
+
+    <select id="focusSubject">
+      <option>Mathematics</option>
+      <option>English</option>
+      <option>Biology</option>
+      <option>Chemistry</option>
+      <option>Physics</option>
+      <option>Economics</option>
+      <option>Geography</option>
+      <option>History</option>
+      <option>Computer Science</option>
+      <option>Other</option>
+    </select>
+
+    <div class="timer-modes">
+      <button class="timer-mode active" data-minutes="25">25 min</button>
+      <button class="timer-mode" data-minutes="15">15 min</button>
+      <button class="timer-mode" data-minutes="5">5 min</button>
+    </div>
+
+    <div id="timerDisplay" class="timer-display">25:00</div>
+    <p id="timerMode">Focus session</p>
+
+    <div class="timer-controls">
+      <button id="timerStart" class="primary-btn">▶ Start</button>
+      <button id="timerReset" class="soft-btn">↺ Reset</button>
+    </div>
+  </section>
+
+  <section class="panel pet-panel">
+    <p class="eyebrow">YOUR STUDY COMPANION</p>
+    <h2>Study pet 🐾</h2>
+    <div class="pet-display">
+      <div id="petEmoji" class="pet-emoji">🐱</div>
+      <h3 id="petNameDisplay">Study Buddy</h3>
+      <p id="petLevelText">Level 1</p>
+    </div>
+    <div class="progress-track">
+      <div id="petProgressBar" class="progress-fill"></div>
+    </div>
+    <p id="petXPText">0 XP</p>
+
+    <div class="pet-settings">
+      <label for="petName">Name your pet</label>
+      <input id="petName" maxlength="20" placeholder="Study Buddy">
+
+      <label for="petAccessory">Pet accessories</label>
+      <select id="petAccessory">
+        <option value="none">No accessory</option>
+        <option value="🎀">🎀 Ribbon (Level 2)</option>
+        <option value="👑">👑 Crown (Level 5)</option>
+        <option value="🕶️">🕶️ Sunglasses (Level 7)</option>
+        <option value="✨">✨ Sparkles (Level 10)</option>
+      </select>
+      <p id="accessoryMessage"></p>
+    </div>
+
+    <div id="rewardList" class="reward-list"></div>
+  </section>
+
+  <section class="panel">
+    <p class="eyebrow">SEE YOUR PROGRESS</p>
+    <h2>Study analytics 📊</h2>
+    <div class="analytics-grid">
+      <div class="analytics-card">
+        <p>Total sessions</p>
+        <h3 id="sessionsStat">0</h3>
+      </div>
+      <div class="analytics-card">
+        <p>Hours studied</p>
+        <h3 id="hoursStat">0</h3>
+      </div>
+      <div class="analytics-card">
+        <p>Tasks remaining</p>
+        <h3 id="remainingStat">0</h3>
+      </div>
+    </div>
+    <h3>Subjects studied</h3>
+    <div id="subjectAnalytics"></div>
+  </section>
+
+  <section class="panel">
+    <p class="eyebrow">PRACTICE & REMEMBER</p>
+    <h2>Flashcards 🃏</h2>
+
+    <form id="cardForm" class="card-form">
+      <input id="cardQuestion" placeholder="Question or term" required>
+      <textarea id="cardAnswer" placeholder="Answer or definition" required rows="3"></textarea>
+      <button class="primary-btn" type="submit">＋ Add flashcard</button>
+    </form>
+
+    <div id="flashcards"></div>
+  </section>
+
+  <section class="panel">
+    <p class="eyebrow">DON'T FORGET</p>
+    <h2>Upcoming deadlines ⏰</h2>
+    <div id="deadlines"></div>
+  </section>
+
+  <section class="panel backup-panel">
+    <p class="eyebrow">KEEP YOUR PROGRESS SAFE</p>
+    <h2>Data backup 💾</h2>
+    <p>Download your StudyFlow data or restore a previous backup.</p>
+    <div class="backup-buttons">
+      <button id="exportData" class="primary-btn">⬇ Download backup</button>
+      <button id="importDataBtn" class="soft-btn">⬆ Restore backup</button>
+      <input type="file" id="importDataFile" accept=".json,application/json" hidden>
+    </div>
+    <p id="backupMessage"></p>
+  </section>
+
+</main>
+
+<footer>
+  <p>Made for your dreams, one study session at a time. 💜</p>
+  <p>StudyFlow</p>
+</footer>
+
+<div id="celebrationContainer"></div>
+
+<script src="script.js"></script>
 </body>
 </html>

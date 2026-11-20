@@ -1,504 +1,900 @@
 
+/* =================================
+   STUDYFLOW 2.1
+   COMPLETE APP JAVASCRIPT
+================================= */
+
 const $ = id => document.getElementById(id);
 
-const todayKey = () => new Date().toISOString().slice(0,10);
-const dateKey = d => {
-  const x = new Date(d);
-  return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-};
+const STORAGE_KEY = "studyflow2";
 
 const defaultState = {
-  profile:{name:"",school:"",goal:60},
-  tasks:[],
-  cards:[],
-  sessions:[],
-  streak:0,
-  lastStudyDate:"",
-  xp:0,
-  petName:"Study Buddy",
-  dark:false,
-  dailyGoal:60
+  tasks: [],
+  sessions: [],
+  cards: [],
+  xp: 0,
+  streak: 0,
+  lastStudyDate: "",
+  profile: {
+    name: "",
+    goal: 60
+  },
+  petName: "Study Buddy",
+  accessory: "none",
+  dark: false
 };
 
 let state;
-try {
-  state = {...defaultState,...JSON.parse(localStorage.getItem("studyflow2")||"{}")};
-  state.profile={...defaultState.profile,...state.profile};
-  state.tasks=state.tasks||[];
-  state.cards=state.cards||[];
-  state.sessions=state.sessions||[];
-} catch {
-  state={...defaultState};
+let currentFilter = "all";
+let selectedDate = dateKey(new Date());
+let calendarDate = new Date();
+let timerSeconds = 25 * 60;
+let timerInitial = 25 * 60;
+let timerRunning = false;
+let timerInterval = null;
+let editingTaskId = null;
+
+/* ---------- STORAGE ---------- */
+
+function loadState(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+
+    state = {
+      ...defaultState,
+      ...(saved || {}),
+      profile:{
+        ...defaultState.profile,
+        ...(saved?.profile || {})
+      },
+      tasks:Array.isArray(saved?.tasks) ? saved.tasks : [],
+      sessions:Array.isArray(saved?.sessions) ? saved.sessions : [],
+      cards:Array.isArray(saved?.cards) ? saved.cards : []
+    };
+  }catch{
+    state = structuredClone(defaultState);
+  }
 }
 
 function save(){
-  localStorage.setItem("studyflow2",JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
   renderAll();
 }
 
-function scrollToSection(id){
-  document.getElementById(id)?.scrollIntoView({behavior:"smooth"});
+function dateKey(date){
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${year}-${month}-${day}`;
 }
-window.scrollToSection=scrollToSection;
 
-const quotes=[
-  ["Small steps every day lead to big results.","Make today count."],
-  ["You don't have to be perfect. Just keep learning.","Progress is progress."],
-  ["Your future self will thank you.","Keep going."],
-  ["Every page you study is a step forward.","You've got this."],
-  ["Dream big. Study smart. Be kind to yourself.","One step at a time."],
-  ["Consistency is more powerful than perfection.","Stay curious."]
-];
-
-function showQuote(){
-  const q=quotes[Math.floor(Math.random()*quotes.length)];
-  $("quote").textContent=q[0];
-  $("quoteAuthor").textContent=q[1];
+function todayKey(){
+  return dateKey(new Date());
 }
+
+function escapeHTML(value){
+  return String(value ?? "").replace(/[&<>"']/g,char=>({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
+  }[char]));
+}
+
+function getDateLabel(date){
+  if(!date) return "No deadline";
+  const d = new Date(date+"T00:00:00");
+  if(Number.isNaN(d.getTime())) return date;
+  return d.toLocaleDateString(undefined,{
+    weekday:"short",
+    day:"numeric",
+    month:"short",
+    year:"numeric"
+  });
+}
+
+/* ---------- TASKS ---------- */
 
 function taskAdd(e){
   e.preventDefault();
-  const name=$("taskName").value.trim();
-  if(!name)return;
-  state.tasks.push({
-    id:Date.now()+Math.random(),
+
+  const name = $("taskName").value.trim();
+  if(!name) return;
+
+  const task = {
+    id:Date.now().toString(),
     name,
     subject:$("taskSubject").value,
     type:$("taskType").value,
-    date:$("taskDate").value,
     priority:$("taskPriority").value,
+    date:$("taskDate").value,
     done:false,
-    created:todayKey()
-  });
+    xpGranted:false,
+    createdAt:Date.now()
+  };
+
+  if(editingTaskId){
+    const oldTask = state.tasks.find(t=>String(t.id)===String(editingTaskId));
+    if(oldTask){
+      Object.assign(oldTask,{
+        name:task.name,
+        subject:task.subject,
+        type:task.type,
+        priority:task.priority,
+        date:task.date
+      });
+    }
+    editingTaskId=null;
+    $("taskSubmit").textContent="＋ Add task";
+  }else{
+    state.tasks.unshift(task);
+  }
+
   $("taskForm").reset();
   save();
 }
 
-let currentFilter="all";
+function editTask(id){
+  const task = state.tasks.find(t=>String(t.id)===String(id));
+  if(!task) return;
 
-function renderTasks(){
-  const list=$("taskList");
-  let tasks=[...state.tasks];
-  if(currentFilter==="pending")tasks=tasks.filter(t=>!t.done);
-  if(currentFilter==="completed")tasks=tasks.filter(t=>t.done);
-  tasks.sort((a,b)=>{
-    if(a.done!==b.done)return a.done?1:-1;
-    if(a.date&&b.date)return a.date.localeCompare(b.date);
-    if(a.date)return -1;
-    if(b.date)return 1;
-    return 0;
+  $("taskName").value=task.name;
+  $("taskSubject").value=task.subject || "Other";
+  $("taskType").value=task.type || "Other";
+  $("taskPriority").value=task.priority || "Medium";
+  $("taskDate").value=task.date || "";
+
+  editingTaskId=task.id;
+  $("taskSubmit").textContent="Save changes";
+
+  $("taskForm").scrollIntoView({
+    behavior:"smooth",
+    block:"center"
   });
-  $("taskCount").textContent=state.tasks.filter(t=>!t.done).length+" remaining";
-  if(!tasks.length){
-    list.innerHTML='<div class="empty">Nothing here yet. Add a task to get started ✨</div>';
-    return;
-  }
-  list.innerHTML=tasks.map(t=>`
-    <div class="task-item ${t.done?"done":""}">
-      <input type="checkbox" ${t.done?"checked":""} onchange="toggleTask('${t.id}')">
-      <div class="task-info">
-        <div class="task-title">${escapeHTML(t.name)}</div>
-        <div class="task-meta">${escapeHTML(t.subject)} · ${escapeHTML(t.type)} ${t.date?"· "+t.date:""} · <span class="${t.priority==="High"?"priority-high":t.priority==="Low"?"priority-low":""}">${escapeHTML(t.priority)} priority</span></div>
-      </div>
-      <div class="task-actions">
-        <button class="small-btn" onclick="deleteTask('${t.id}')">✕</button>
-      </div>
-    </div>
-  `).join("");
 }
 
-function escapeHTML(s){
-  return String(s).replace(/[&<>"']/g,c=>({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-  }[c]));
+function cancelEdit(){
+  editingTaskId=null;
+  $("taskForm").reset();
+  $("taskSubmit").textContent="＋ Add task";
 }
 
 function toggleTask(id){
-  const task=state.tasks.find(t=>String(t.id)===String(id));
-  if(!task)return;
+  const task = state.tasks.find(t=>String(t.id)===String(id));
+  if(!task) return;
+
   task.done=!task.done;
-  if(task.done){
+
+  if(task.done && !task.xpGranted){
+    task.xpGranted=true;
     state.xp+=5;
+    celebrate("🎉");
   }
+
   save();
 }
 
 function deleteTask(id){
+  if(!confirm("Delete this task?")) return;
+
   state.tasks=state.tasks.filter(t=>String(t.id)!==String(id));
   save();
 }
-window.toggleTask=toggleTask;
-window.deleteTask=deleteTask;
+
+function renderTasks(){
+  const list=$("taskList");
+  list.innerHTML="";
+
+  const searchText=$("taskSearch").value.toLowerCase().trim();
+
+  let tasks=[...state.tasks];
+
+  if(currentFilter==="active"){
+    tasks=tasks.filter(t=>!t.done);
+  }
+
+  if(currentFilter==="done"){
+    tasks=tasks.filter(t=>t.done);
+  }
+
+  if(searchText){
+    tasks=tasks.filter(t=>
+      (t.name||"").toLowerCase().includes(searchText) ||
+      (t.subject||"").toLowerCase().includes(searchText) ||
+      (t.type||"").toLowerCase().includes(searchText)
+    );
+  }
+
+  tasks.sort((a,b)=>{
+    if(a.done!==b.done) return a.done?1:-1;
+
+    const da=a.date || "9999-99-99";
+    const db=b.date || "9999-99-99";
+
+    if(da!==db) return da.localeCompare(db);
+
+    const order={High:0,Medium:1,Low:2};
+    return (order[a.priority]??1)-(order[b.priority]??1);
+  });
+
+  $("emptyTasks").style.display=tasks.length?"none":"block";
+
+  tasks.forEach(t=>{
+    const item=document.createElement("div");
+    item.className="task-item"+(t.done?" done":"");
+
+    item.innerHTML=`
+      <input class="task-check" type="checkbox"
+        ${t.done?"checked":""}
+        aria-label="Complete task">
+
+      <div class="task-content">
+        <h3>${escapeHTML(t.name)}</h3>
+        <p>${escapeHTML(t.subject||"Other")} · ${escapeHTML(t.type||"Task")}</p>
+        <p>${escapeHTML(t.date?getDateLabel(t.date):"No deadline")}</p>
+        <span class="priority ${escapeHTML(t.priority||"Medium")}">
+          ${escapeHTML(t.priority||"Medium")} priority
+        </span>
+      </div>
+
+      <div class="task-actions">
+        <button class="small-btn edit-btn" title="Edit task">✎</button>
+        <button class="small-btn delete-btn" title="Delete task">✕</button>
+      </div>
+    `;
+
+    item.querySelector(".task-check").addEventListener("change",()=>toggleTask(t.id));
+    item.querySelector(".edit-btn").addEventListener("click",()=>editTask(t.id));
+    item.querySelector(".delete-btn").addEventListener("click",()=>deleteTask(t.id));
+
+    list.appendChild(item);
+  });
+}
+
+/* ---------- CALENDAR ---------- */
 
 function renderCalendar(){
-  const container=$("calendarWeek");
-  const now=new Date();
-  const start=new Date(now);
-  const weekday=(start.getDay()+6)%7;
-  start.setDate(start.getDate()-weekday);
+  const year=calendarDate.getFullYear();
+  const month=calendarDate.getMonth();
 
-  let days=[];
-  for(let i=0;i<7;i++){
-    let d=new Date(start);
-    d.setDate(start.getDate()+i);
-    days.push(d);
+  $("calendarMonth").textContent=calendarDate.toLocaleDateString(undefined,{
+    month:"long",
+    year:"numeric"
+  });
+
+  const grid=$("calendarGrid");
+  grid.innerHTML="";
+
+  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(day=>{
+    const cell=document.createElement("div");
+    cell.className="calendar-cell weekday";
+    cell.textContent=day;
+    grid.appendChild(cell);
+  });
+
+  const firstDay=new Date(year,month,1).getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+
+  for(let i=0;i<firstDay;i++){
+    const blank=document.createElement("div");
+    blank.className="calendar-cell";
+    grid.appendChild(blank);
   }
-  container.innerHTML=days.map(d=>{
-    let k=dateKey(d);
-    let count=state.tasks.filter(t=>t.date===k&&!t.done).length;
-    return `<div class="calendar-day ${k===selectedCalendarDate?"selected":""}" onclick="selectCalendarDate('${k}')">
-      <small>${d.toLocaleDateString(undefined,{weekday:"short"})}</small>
-      <strong>${d.getDate()}</strong>
-      <small>${count?count+" task"+(count>1?"s":""):"—"}</small>
-    </div>`;
-  }).join("");
+
+  for(let day=1;day<=daysInMonth;day++){
+    const date=new Date(year,month,day);
+    const key=dateKey(date);
+
+    const cell=document.createElement("div");
+    cell.className="calendar-cell";
+    cell.textContent=day;
+
+    if(key===todayKey()) cell.classList.add("today");
+    if(key===selectedDate) cell.classList.add("selected");
+
+    if(state.tasks.some(t=>t.date===key)){
+      cell.classList.add("has-task");
+    }
+
+    cell.addEventListener("click",()=>{
+      selectedDate=key;
+      renderCalendar();
+    });
+
+    grid.appendChild(cell);
+  }
+
   renderCalendarTasks();
 }
 
-let selectedCalendarDate=todayKey();
-function selectCalendarDate(k){
-  selectedCalendarDate=k;
-  renderCalendar();
-}
-window.selectCalendarDate=selectCalendarDate;
-
 function renderCalendarTasks(){
-  const tasks=state.tasks.filter(t=>t.date===selectedCalendarDate);
-  $("calendarTasks").innerHTML=`
-    <h3>${selectedCalendarDate===todayKey()?"Today's schedule":selectedCalendarDate}</h3>
-    ${tasks.length?tasks.map(t=>`
-      <div class="calendar-event">${t.done?"✓ ":""}${escapeHTML(t.name)} · ${escapeHTML(t.subject)} · ${escapeHTML(t.type)}</div>
-    `).join(""):'<div class="empty">No tasks scheduled for this day.</div>'}
-  `;
-}
+  const tasks=state.tasks.filter(t=>t.date===selectedDate);
 
-$("weekToday").addEventListener("click",()=>{
-  selectedCalendarDate=todayKey();
-  renderCalendar();
-});
+  const box=$("calendarTasks");
 
-function renderStats(){
-  const completed=state.tasks.filter(t=>t.done).length;
-  const minutes=state.sessions.reduce((s,x)=>s+x.minutes,0);
-  $("completedStat").textContent=completed;
-  $("streakStat").textContent=state.streak+" days";
-  $("minutesStat").textContent=minutes;
-  $("xpStat").textContent=state.xp+" XP";
-}
-
-function petLevel(){
-  return Math.floor(state.xp/100)+1;
-}
-function petEmoji(){
-  const level=petLevel();
-  if(level>=10)return "🦄";
-  if(level>=7)return "🐉";
-  if(level>=5)return "🦊";
-  if(level>=3)return "🐱";
-  if(level>=2)return "🐥";
-  return "🐣";
-}
-function renderPet(){
-  let level=petLevel();
-  let xpInLevel=state.xp%100;
-  $("petEmoji").textContent=petEmoji();
-  $("petNameDisplay").textContent=state.petName;
-  $("petLevel").textContent="Level "+level;
-  $("petMood").textContent=level>=10?"Your pet is legendary!":level>=5?"Your pet is thriving!":"Your pet loves learning with you!";
-  $("xpBar").style.width=xpInLevel+"%";
-  $("xpProgress").textContent=xpInLevel+" / 100 XP (Level "+level+")";
-  const rewards=[
-    {level:1,name:"🐣 Starter buddy"},
-    {level:2,name:"🐥 Little chick"},
-    {level:3,name:"🐱 Cat"},
-    {level:5,name:"🦊 Fox"},
-    {level:7,name:"🐉 Dragon"},
-    {level:10,name:"🦄 Unicorn"}
-  ];
-  $("rewardList").innerHTML=rewards.map(r=>
-    `<span class="reward ${level<r.level?"locked":""}">${r.name} ${level>=r.level?"✓":"🔒"}</span>`
-  ).join("");
-}
-
-function renderAnalytics(){
-  const days=[];
-  const now=new Date();
-  for(let i=6;i>=0;i--){
-    let d=new Date(now);
-    d.setDate(now.getDate()-i);
-    let k=dateKey(d);
-    let minutes=state.sessions.filter(s=>s.date===k).reduce((sum,s)=>sum+s.minutes,0);
-    days.push({label:d.toLocaleDateString(undefined,{weekday:"short"}),minutes});
-  }
-  const max=Math.max(1,...days.map(d=>d.minutes));
-  $("weeklyChart").innerHTML=days.map(d=>`
-    <div class="bar-column">
-      <div class="bar-value">${d.minutes}m</div>
-      <div class="bar" style="height:${Math.max(3,d.minutes/max*100)}%"></div>
-      <div class="bar-label">${d.label}</div>
-    </div>
-  `).join("");
-
-  const subjects={};
-  state.sessions.forEach(s=>subjects[s.subject||"General"]=(subjects[s.subject||"General"]||0)+s.minutes);
-  const entries=Object.entries(subjects).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const maxSubject=Math.max(1,...entries.map(x=>x[1]));
-  $("subjectChart").innerHTML=entries.length?entries.map(([name,m])=>`
-    <div class="subject-row">
-      <div>${escapeHTML(name)} · ${m} minutes</div>
-      <div class="subject-line"><div class="subject-fill" style="width:${m/maxSubject*100}%"></div></div>
-    </div>
-  `).join(""):'<div class="empty">Complete focus sessions to see your subjects.</div>';
-
-  let total=state.sessions.reduce((s,x)=>s+x.minutes,0);
-  let goal=Number(state.profile.goal)||60;
-  let todayMinutes=state.sessions.filter(s=>s.date===todayKey()).reduce((s,x)=>s+x.minutes,0);
-  $("analyticsSummary").innerHTML=`
-    <div class="summary-chip">📚 Total: ${total} minutes</div>
-    <div class="summary-chip">🎯 Daily goal: ${todayMinutes}/${goal} minutes</div>
-    <div class="summary-chip">✔ Tasks: ${state.tasks.filter(t=>t.done).length}</div>
-  `;
-}
-
-function renderDeadlines(){
-  const upcoming=state.tasks.filter(t=>!t.done&&t.date).sort((a,b)=>a.date.localeCompare(b.date));
-  if(!upcoming.length){
-    $("deadlineList").innerHTML='<div class="empty">No upcoming deadlines. Add a dated task to see it here.</div>';
+  if(!tasks.length){
+    box.textContent="No tasks scheduled for "+getDateLabel(selectedDate)+".";
     return;
   }
-  $("deadlineList").innerHTML=upcoming.slice(0,10).map(t=>{
-    const overdue=t.date<todayKey();
-    return `<div class="deadline ${overdue?"overdue":""}">
-      <div><strong>${escapeHTML(t.name)}</strong><div class="task-meta">${escapeHTML(t.subject)} · ${escapeHTML(t.type)}</div></div>
-      <div>${t.date}${overdue?" ⚠️":""}</div>
-    </div>`;
-  }).join("");
-}
 
-function renderCards(){
-  const area=$("flashcardArea");
-  if(!state.cards.length){
-    area.innerHTML='<div class="empty">Create your first flashcard above ✨</div>';
-    return;
-  }
-  area.innerHTML=state.cards.map(c=>`
-    <div class="flashcard" onclick="flipCard('${c.id}')">
-      <div class="card-label">${escapeHTML(c.subject)} · Click to flip</div>
-      <div class="card-text" id="cardText${c.id}">${escapeHTML(c.question)}</div>
-      <div class="flashcard-actions">
-        <button class="small-btn" onclick="event.stopPropagation();deleteCard('${c.id}')">Delete</button>
-        <span class="card-label">↻ Flip</span>
+  box.innerHTML=`
+    <strong>${escapeHTML(getDateLabel(selectedDate))}</strong>
+    ${tasks.map(t=>`
+      <div class="deadline-item">
+        ${t.done?"✅":"📌"} ${escapeHTML(t.name)}
+        <p>${escapeHTML(t.subject)} · ${escapeHTML(t.type)}</p>
       </div>
-    </div>
-  `).join("");
+    `).join("")}
+  `;
 }
 
-function flipCard(id){
-  let c=state.cards.find(x=>String(x.id)===String(id));
-  if(!c)return;
-  c.flipped=!c.flipped;
-  const el=$("cardText"+id);
-  if(el)el.textContent=c.flipped?c.answer:c.question;
-}
-function deleteCard(id){
-  state.cards=state.cards.filter(c=>String(c.id)!==String(id));
-  save();
-}
-window.flipCard=flipCard;
-window.deleteCard=deleteCard;
+/* ---------- FOCUS TIMER ---------- */
 
-$("cardForm").addEventListener("submit",e=>{
-  e.preventDefault();
-  state.cards.push({
-    id:Date.now(),
-    subject:$("cardSubject").value.trim(),
-    question:$("cardQuestion").value.trim(),
-    answer:$("cardAnswer").value.trim(),
-    flipped:false
+function chooseTimer(minutes){
+  stopTimer();
+
+  timerInitial=minutes*60;
+  timerSeconds=timerInitial;
+
+  document.querySelectorAll(".timer-mode").forEach(btn=>{
+    btn.classList.toggle(
+      "active",
+      Number(btn.dataset.minutes)===minutes
+    );
   });
-  $("cardForm").reset();
-  save();
-});
 
-$("taskForm").addEventListener("submit",taskAdd);
-document.querySelectorAll(".filter").forEach(btn=>{
-  btn.addEventListener("click",()=>{
-    currentFilter=btn.dataset.filter;
-    document.querySelectorAll(".filter").forEach(b=>b.classList.remove("active"));
-    btn.classList.add("active");
-    renderTasks();
-  });
-});
-
-$("profileBtn").addEventListener("click",()=>{
-  $("profileName").value=state.profile.name||"";
-  $("profileSchool").value=state.profile.school||"";
-  $("dailyGoal").value=state.profile.goal||60;
-  $("profileDialog").showModal();
-});
-$("closeProfile").addEventListener("click",()=>$("profileDialog").close());
-$("saveProfile").addEventListener("click",()=>{
-  state.profile.name=$("profileName").value.trim();
-  state.profile.school=$("profileSchool").value.trim();
-  state.profile.goal=Math.max(1,Number($("dailyGoal").value)||60);
-  $("profileDialog").close();
-  save();
-});
-
-$("petNameBtn").addEventListener("click",()=>$("petDialog").showModal());
-$("closePetDialog").addEventListener("click",()=>$("petDialog").close());
-$("savePetName").addEventListener("click",()=>{
-  state.petName=$("newPetName").value.trim()||"Study Buddy";
-  $("petDialog").close();
-  save();
-});
-
-$("themeToggle").addEventListener("click",()=>{
-  state.dark=!state.dark;
-  save();
-});
-
-function renderTheme(){
-  document.body.classList.toggle("dark",state.dark);
-  $("themeToggle").textContent=state.dark?"☀️":"🌙";
+  $("timerMode").textContent="Focus session";
+  renderTimer();
 }
 
-function renderWelcome(){
-  $("welcome").textContent=state.profile.name
-    ?"Welcome back, "+state.profile.name+" ✨"
-    :"Welcome to StudyFlow ✨";
-}
+function renderTimer(){
+  const minutes=Math.floor(timerSeconds/60);
+  const seconds=timerSeconds%60;
 
-let timerSeconds=25*60;
-let timerRunning=false;
-let timerInterval=null;
-let timerSessionMinutes=25;
-let timerSessionLabel="Focus session";
-
-function updateTimer(){
   $("timerDisplay").textContent=
-    String(Math.floor(timerSeconds/60)).padStart(2,"0")+":"+
-    String(timerSeconds%60).padStart(2,"0");
-}
+    String(minutes).padStart(2,"0")+":"+
+    String(seconds).padStart(2,"0");
 
-document.querySelectorAll(".timer-select").forEach(btn=>{
-  btn.addEventListener("click",()=>{
-    stopTimer();
-    timerSessionMinutes=Number(btn.dataset.minutes);
-    timerSessionLabel=btn.dataset.label;
-    timerSeconds=timerSessionMinutes*60;
-    $("timerMode").textContent=timerSessionLabel;
-    document.querySelectorAll(".timer-select").forEach(b=>b.classList.remove("active"));
-    btn.classList.add("active");
-    updateTimer();
-  });
-});
+  $("timerStart").textContent=timerRunning?"⏸ Pause":"▶ Start";
+}
 
 function stopTimer(){
   timerRunning=false;
-  clearInterval(timerInterval);
-  $("timerStart").textContent="▶ Start";
+  if(timerInterval){
+    clearInterval(timerInterval);
+    timerInterval=null;
+  }
+  renderTimer();
 }
 
-$("timerStart").addEventListener("click",()=>{
+function startTimer(){
   if(timerRunning){
     stopTimer();
     return;
   }
+
+  if(timerSeconds<=0){
+    timerSeconds=timerInitial;
+  }
+
   timerRunning=true;
-  $("timerStart").textContent="⏸ Pause";
+  renderTimer();
+
   timerInterval=setInterval(()=>{
     timerSeconds--;
-    updateTimer();
+
+    renderTimer();
+
     if(timerSeconds<=0){
       stopTimer();
       timerComplete();
     }
   },1000);
-});
-$("timerReset").addEventListener("click",()=>{
-  stopTimer();
-  timerSeconds=timerSessionMinutes*60;
-  updateTimer();
-});
-
-function timerComplete(){
-  if(timerSessionMinutes===25){
-    recordStudy(25);
-    alert("Focus session complete! 🎉 You earned 25 study minutes and 25 XP!");
-  }else{
-    alert("Break time is over! Ready for your next session?");
-  }
-  timerSeconds=timerSessionMinutes*60;
-  updateTimer();
 }
 
-function recordStudy(minutes){
+function resetTimer(){
+  stopTimer();
+  timerSeconds=timerInitial;
+  $("timerMode").textContent="Focus session";
+  renderTimer();
+}
+
+function timerComplete(){
+  $("timerMode").textContent="Session completed! 🎉";
+  celebrate("🎉");
+
+  recordStudy(timerInitial/60,$("focusSubject").value);
+
+  if("Notification" in window && Notification.permission==="granted"){
+    try{
+      new Notification("StudyFlow",{
+        body:"Your focus session is complete. Well done!"
+      });
+    }catch{}
+  }
+
+  alert("Focus session completed! Great job. 🎉");
+}
+
+/* ---------- STUDY RECORDS ---------- */
+
+function recordStudy(minutes,subject="Other"){
   const date=todayKey();
-  state.sessions.push({date,minutes,subject:"General"});
+
+  state.sessions.push({
+    date,
+    minutes,
+    subject,
+    id:Date.now().toString()
+  });
+
   state.xp+=minutes;
+
   if(state.lastStudyDate!==date){
     const yesterday=new Date();
     yesterday.setDate(yesterday.getDate()-1);
-    state.streak=state.lastStudyDate===dateKey(yesterday)?state.streak+1:1;
+
+    if(state.lastStudyDate===dateKey(yesterday)){
+      state.streak++;
+    }else{
+      state.streak=1;
+    }
+
     state.lastStudyDate=date;
   }
+
   save();
 }
 
-$("notificationBtn").addEventListener("click",async()=>{
-  if(!("Notification" in window)){
-    alert("Notifications are not supported by this browser.");
-    return;
-  }
-  if(Notification.permission==="granted"){
-    alert("Reminders are already enabled!");
-    checkReminders();
-    return;
-  }
-  if(Notification.permission==="denied"){
-    alert("Notifications are blocked by your browser settings. You can change that in browser site settings.");
-    return;
-  }
-  const result=await Notification.requestPermission();
-  if(result==="granted"){
-    alert("Reminders enabled! Keep StudyFlow open to check deadlines.");
-    checkReminders();
-  }
-});
+function renderDailyGoal(){
+  const todayMinutes=state.sessions
+    .filter(s=>s.date===todayKey())
+    .reduce((sum,s)=>sum+Number(s.minutes||0),0);
 
-function checkReminders(){
-  if(!("Notification" in window)||Notification.permission!=="granted")return;
-  const today=todayKey();
-  state.tasks.filter(t=>!t.done&&t.date===today).forEach(t=>{
-    const reminderKey="studyflow-reminder-"+today+"-"+t.id;
-    if(!localStorage.getItem(reminderKey)){
-      new Notification("StudyFlow deadline reminder",{body:t.name+" · "+t.subject});
-      localStorage.setItem(reminderKey,"yes");
-    }
+  const goal=Math.max(1,Number(state.profile.goal)||60);
+  const percentage=Math.min(100,(todayMinutes/goal)*100);
+
+  $("goalProgressBar").style.width=percentage+"%";
+  $("goalProgressText").textContent=
+    `${todayMinutes} / ${goal} minutes studied today`;
+
+  $("goalBadge").textContent=Math.round(percentage)+"%";
+
+  if(todayMinutes>=goal){
+    $("goalProgressText").textContent=
+      "🎉 Daily goal achieved! "+todayMinutes+" minutes studied.";
+  }
+}
+
+/* ---------- PET ---------- */
+
+function petLevel(){
+  return Math.floor(Math.max(0,state.xp)/100)+1;
+}
+
+function petEmoji(){
+  const level=petLevel();
+
+  if(level>=10) return "🐉";
+  if(level>=7) return "🦊";
+  if(level>=5) return "🐼";
+  if(level>=3) return "🐰";
+  return "🐱";
+}
+
+function renderPet(){
+  const level=petLevel();
+  const xp=state.xp;
+  const currentLevelXP=xp%100;
+
+  $("petEmoji").textContent=
+    petEmoji()+" "+(state.accessory==="none"?"":state.accessory);
+
+  $("petNameDisplay").textContent=state.petName||"Study Buddy";
+  $("petLevelText").textContent="Level "+level;
+  $("petXPText").textContent=currentLevelXP+" / 100 XP to next level";
+
+  $("petProgressBar").style.width=currentLevelXP+"%";
+
+  const accessory=$("petAccessory");
+
+  const accessoryLevels={
+    "none":1,
+    "🎀":2,
+    "👑":5,
+    "🕶️":7,
+    "✨":10
+  };
+
+  accessory.value=state.accessory||"none";
+
+  Array.from(accessory.options).forEach(option=>{
+    const required=accessoryLevels[option.value]||1;
+    option.disabled=level<required;
+  });
+
+  if(level<(accessoryLevels[state.accessory]||1)){
+    state.accessory="none";
+    accessory.value="none";
+  }
+
+  $("accessoryMessage").textContent=
+    "Accessories unlock as your pet levels up.";
+
+  const rewards=[
+    {level:1,name:"🐱 Starter pet"},
+    {level:2,name:"🎀 Ribbon"},
+    {level:3,name:"🐰 Bunny pet"},
+    {level:5,name:"👑 Crown"},
+    {level:7,name:"🕶️ Sunglasses"},
+    {level:10,name:"✨ Sparkles & dragon"}
+  ];
+
+  $("rewardList").innerHTML=rewards.map(r=>`
+    <div class="reward ${level<r.level?"locked":""}">
+      ${level>=r.level?"🔓":"🔒"}
+      ${escapeHTML(r.name)}
+      <br>
+      <small>Level ${r.level}</small>
+    </div>
+  `).join("");
+}
+
+/* ---------- ANALYTICS ---------- */
+
+function renderAnalytics(){
+  const completed=state.tasks.filter(t=>t.done).length;
+  const remaining=state.tasks.filter(t=>!t.done).length;
+
+  const totalMinutes=state.sessions.reduce(
+    (sum,s)=>sum+Number(s.minutes||0),0
+  );
+
+  $("completedStat").textContent=completed;
+  $("streakStat").textContent=state.streak+" days";
+  $("minutesStat").textContent=totalMinutes;
+  $("xpStat").textContent=state.xp+" XP";
+
+  $("sessionsStat").textContent=state.sessions.length;
+  $("hoursStat").textContent=(totalMinutes/60).toFixed(1);
+  $("remainingStat").textContent=remaining;
+
+  const subjects={};
+
+  state.sessions.forEach(s=>{
+    const subject=s.subject||"Other";
+    subjects[subject]=(subjects[subject]||0)+Number(s.minutes||0);
+  });
+
+  const max=Math.max(1,...Object.values(subjects));
+
+  $("subjectAnalytics").innerHTML=Object.entries(subjects)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([subject,minutes])=>`
+      <div class="subject-row">
+        <p>
+          <span>${escapeHTML(subject)}</span>
+          <span>${minutes} min</span>
+        </p>
+        <div class="subject-track">
+          <div class="subject-fill" style="width:${(minutes/max)*100}%"></div>
+        </div>
+      </div>
+    `).join("") || "<p>No study sessions recorded yet.</p>";
+}
+
+/* ---------- FLASHCARDS ---------- */
+
+function addCard(e){
+  e.preventDefault();
+
+  const question=$("cardQuestion").value.trim();
+  const answer=$("cardAnswer").value.trim();
+
+  if(!question||!answer) return;
+
+  state.cards.unshift({
+    id:Date.now().toString(),
+    question,
+    answer
+  });
+
+  $("cardForm").reset();
+  save();
+}
+
+function renderCards(){
+  $("flashcards").innerHTML=state.cards.map(card=>`
+    <div class="flashcard" data-card="${escapeHTML(card.id)}">
+      <strong>${escapeHTML(card.question)}</strong>
+      <div class="flashcard-answer">
+        ${escapeHTML(card.answer)}
+      </div>
+      <div class="flashcard-actions">
+        <button class="soft-btn flip-btn">👀 Show answer</button>
+        <button class="small-btn delete-card-btn">✕</button>
+      </div>
+    </div>
+  `).join("");
+
+  document.querySelectorAll(".flip-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const card=btn.closest(".flashcard");
+      card.classList.toggle("show");
+      btn.textContent=card.classList.contains("show")
+        ?"🙈 Hide answer"
+        :"👀 Show answer";
+    });
+  });
+
+  document.querySelectorAll(".delete-card-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id=btn.closest(".flashcard").dataset.card;
+      state.cards=state.cards.filter(c=>String(c.id)!==String(id));
+      save();
+    });
   });
 }
 
-function renderAll(){
-  renderTheme();
-  renderWelcome();
-  renderTasks();
-  renderCalendar();
-  renderStats();
-  renderPet();
-  renderAnalytics();
-  renderDeadlines();
-  renderCards();
+/* ---------- DEADLINES ---------- */
+
+function renderDeadlines(){
+  const upcoming=state.tasks
+    .filter(t=>!t.done && t.date)
+    .sort((a,b)=>a.date.localeCompare(b.date));
+
+  $("deadlines").innerHTML=upcoming.map(t=>`
+    <div class="deadline-item">
+      <strong>${escapeHTML(t.name)}</strong>
+      <p>${escapeHTML(t.subject)} · ${escapeHTML(t.type)}</p>
+      <p>📅 ${escapeHTML(getDateLabel(t.date))}</p>
+    </div>
+  `).join("") || "<p>No upcoming deadlines. You're all caught up! 🌸</p>";
 }
 
-showQuote();
-renderAll();
-updateTimer();
-checkReminders();
+/* ---------- CELEBRATIONS ---------- */
 
-if("serviceWorker" in navigator){
+function celebrate(symbol="✨"){
+  const el=document.createElement("div");
+  el.className="celebration";
+  el.textContent=symbol;
+  $("celebrationContainer").appendChild(el);
+
+  setTimeout(()=>el.remove(),900);
+}
+
+/* ---------- BACKUP ---------- */
+
+function exportData(){
+  const backup=JSON.stringify(state,null,2);
+  const blob=new Blob([backup],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+
+  const link=document.createElement("a");
+  link.href=url;
+  link.download="StudyFlow-Backup-"+todayKey()+".json";
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+
+  $("backupMessage").textContent="Your backup download has started!";
+}
+
+function importData(){
+  $("importDataFile").click();
+}
+
+async function restoreData(e){
+  const file=e.target.files[0];
+  if(!file) return;
+
+  try{
+    const imported=JSON.parse(await file.text());
+
+    if(
+      !imported ||
+      !Array.isArray(imported.tasks) ||
+      !Array.isArray(imported.sessions) ||
+      !Array.isArray(imported.cards)
+    ){
+      throw new Error("Invalid backup");
+    }
+
+    if(!confirm("Restore this backup? Your current StudyFlow data will be replaced.")){
+      e.target.value="";
+      return;
+    }
+
+    state={
+      ...defaultState,
+      ...imported,
+      profile:{
+        ...defaultState.profile,
+        ...(imported.profile||{})
+      }
+    };
+
+    save();
+
+    $("backupMessage").textContent="Backup restored successfully!";
+  }catch{
+    $("backupMessage").textContent="That backup file could not be restored.";
+  }
+
+  e.target.value="";
+}
+
+/* ---------- PROFILE & SETTINGS ---------- */
+
+function renderProfile(){
+  const name=state.profile.name||"";
+
+  $("profileName").value=name;
+  $("welcomeText").textContent=name
+    ?"Welcome back, "+name+"! ✨"
+    :"Welcome back! ✨";
+
+  $("todayText").textContent=new Date().toLocaleDateString(undefined,{
+    weekday:"long",
+    day:"numeric",
+    month:"long",
+    year:"numeric"
+  });
+
+  $("dailyGoal").value=state.profile.goal||60;
+  $("petName").value=state.petName||"Study Buddy";
+}
+
+function toggleTheme(){
+  state.dark=!state.dark;
+  document.body.classList.toggle("dark",state.dark);
+  $("themeBtn").textContent=state.dark?"☀️":"🌙";
+  save();
+}
+
+async function enableNotifications(){
+  if(!("Notification" in window)){
+    alert("Notifications are not supported in this browser.");
+    return;
+  }
+
+  const permission=await Notification.requestPermission();
+
+  if(permission==="granted"){
+    alert("Notifications enabled! 🎉");
+  }else{
+    alert("Notifications were not enabled. You can change this in your browser settings.");
+  }
+}
+
+/* ---------- RENDER ---------- */
+
+function renderAll(){
+  document.body.classList.toggle("dark",state.dark);
+  $("themeBtn").textContent=state.dark?"☀️":"🌙";
+
+  renderProfile();
+  renderTasks();
+  renderCalendar();
+  renderDailyGoal();
+  renderPet();
+  renderAnalytics();
+  renderCards();
+  renderDeadlines();
+  renderTimer();
+}
+
+/* ---------- EVENTS ---------- */
+
+$("taskForm").addEventListener("submit",taskAdd);
+
+$("taskName").addEventListener("input",()=>{
+  if(editingTaskId && !$("taskName").value.trim()){
+    $("taskSubmit").textContent="Save changes";
+  }
+});
+
+$("taskSearch").addEventListener("input",renderTasks);
+
+$("taskForm").addEventListener("reset",()=>{
+  setTimeout(()=>{
+    if(!editingTaskId){
+      $("taskSubmit").textContent="＋ Add task";
+    }
+  },0);
+});
+
+document.querySelectorAll(".filter-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    currentFilter=btn.dataset.filter;
+
+    document.querySelectorAll(".filter-btn").forEach(b=>{
+      b.classList.toggle("active",b===btn);
+    });
+
+    renderTasks();
+  });
+});
+
+$("prevMonth").addEventListener("click",()=>{
+  calendarDate.setMonth(calendarDate.getMonth()-1);
+  renderCalendar();
+});
+
+$("nextMonth").addEventListener("click",()=>{
+  calendarDate.setMonth(calendarDate.getMonth()+1);
+  renderCalendar();
+});
+
+document.querySelectorAll(".timer-mode").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    chooseTimer(Number(btn.dataset.minutes));
+  });
+});
+
+$("timerStart").addEventListener("click",startTimer);
+$("timerReset").addEventListener("click",resetTimer);
+
+$("profileName").addEventListener("change",()=>{
+  state.profile.name=$("profileName").value.trim();
+  save();
+});
+
+$("dailyGoal").addEventListener("change",()=>{
+  const value=Math.max(1,Math.min(1440,Number($("dailyGoal").value)||60));
+  state.profile.goal=value;
+  $("dailyGoal").value=value;
+  save();
+});
+
+$("petName").addEventListener("change",()=>{
+  state.petName=$("petName").value.trim()||"Study Buddy";
+  save();
+});
+
+$("petAccessory").addEventListener("change",e=>{
+  const level=petLevel();
+
+  const required={
+    "none":1,
+    "🎀":2,
+    "👑":5,
+    "🕶️":7,
+    "✨":10
+  };
+
+  if(level<(required[e.target.value]||1)){
+    e.target.value="none";
+    $("accessoryMessage").textContent="Level up to unlock this accessory!";
+    return;
+  }
+
+  state.accessory=e.target.value;
+  save();
+});
+
+$("themeBtn").addEventListener("click",toggleTheme);
+$("notifyBtn").addEventListener("click",enableNotifications);
+
+$("cardForm").addEventListener("submit",addCard);
+
+$("exportData").addEventListener("click",exportData);
+$("importDataBtn").addEventListener("click",importData);
+$("importDataFile").addEventListener("change",restoreData);
+
+/* ---------- START APP ---------- */
+
+loadState();
+renderAll();
+
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   window.addEventListener("load",()=>{
-    navigator.serviceWorker.register("./service-worker.js")
-      .catch(err=>console.log("Service worker registration failed",err));
+    navigator.serviceWorker.register("service-worker.js")
+      .catch(error=>console.log("Offline setup:",error));
   });
 }
