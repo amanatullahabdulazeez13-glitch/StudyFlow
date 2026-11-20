@@ -1,228 +1,260 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StudyFlow — Student Dashboard</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StudyFlow</title>
+  <meta name="theme-color" content="#7c3aed">
+  <meta name="description" content="Your personal study planner and productivity dashboard.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
 </head>
-
-<link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#7c3aed">
-<link rel="icon" href="./icon.svg">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="StudyFlow">
-
-
-<script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js")
-        .then(() => console.log("StudyFlow offline support enabled"))
-        .catch((error) => console.error("Service worker error:", error));
-    });
-  }
-</script>
-
 <body>
-  <div class="app-shell">
+
+  <div class="app">
     <aside class="sidebar">
-      <div class="brand"><span class="brand-mark">✦</span><span>study<span class="brand-light">flow</span></span></div>
-      <div class="side-label">WORKSPACE</div>
-      <nav>
-        <a class="nav-link active" href="#dashboard"><span>▦</span> Dashboard</a>
-        <a class="nav-link" href="#tasks"><span>☑</span> My tasks</a>
-        <a class="nav-link" href="#focus"><span>◷</span> Focus session</a>
-      </nav>
-      <div class="side-label">YOUR SPACE</div>
-      <div class="side-note">
-        <div class="note-icon">✎</div>
-        <div>
-          <strong>Small steps count.</strong>
-          <p>Make today a little better than yesterday.</p>
-        </div>
+      <div class="logo">
+        <span class="logo-icon">✦</span> StudyFlow
       </div>
+
+      <div class="sidebar-label">MENU</div>
+      <nav>
+        <a href="#dashboard" class="nav-link active">⌂ Dashboard</a>
+        <a href="#tasks" class="nav-link">▣ My Tasks</a>
+        <a href="#planner" class="nav-link">◷ Smart Planner</a>
+        <a href="#focus" class="nav-link">◉ Focus Room</a>
+        <a href="#pet-section" class="nav-link">♡ Study Pet</a>
+      </nav>
+
       <div class="sidebar-bottom">
-        <div class="avatar">S</div>
-        <div>
-          <strong>Student</strong>
-          <small>Your study space</small>
-        </div>
-        <span class="dots">•••</span>
+        <div class="mini-pet">🐰</div>
+        <p>Keep going!</p>
+        <small>Small steps make big progress.</small>
       </div>
     </aside>
 
-    <main class="main" id="dashboard">
+    <main class="main">
       <header class="topbar">
         <div>
-          <div class="eyebrow">YOUR PERSONAL STUDY SPACE</div>
-          <h1>Good day, student <span class="wave">✦</span></h1>
-          <p class="subheading">Stay organized, keep your focus, and make progress.</p>
+          <p class="eyebrow">YOUR PERSONAL STUDY SPACE</p>
+          <h1 id="greeting">Welcome back!</h1>
+          <p class="subtitle">Let's make today count.</p>
         </div>
-        <div class="top-date" id="today"></div>
+
+        <div class="profile">
+          <button id="edit-profile" class="avatar" title="Edit profile">S</button>
+          <div>
+            <strong id="profile-name">Student</strong>
+            <small>My account</small>
+          </div>
+        </div>
       </header>
 
-      <section class="stats-grid">
-        <article class="stat-card purple">
-          <div class="stat-top"><span>Tasks completed</span><span class="stat-icon">✓</span></div>
-          <div class="stat-number" id="completedCount">0</div>
-          <div class="stat-foot"><span class="stat-dot"></span>Keep moving forward</div>
-        </article>
+      <section id="dashboard" class="stats">
+        <div class="stat-card purple">
+          <div class="stat-icon">▣</div>
+          <p>Tasks completed</p>
+          <h2 id="completed-stat">0</h2>
+          <small>Keep making progress</small>
+        </div>
 
-        <article class="stat-card peach">
-          <div class="stat-top"><span>Tasks remaining</span><span class="stat-icon">◷</span></div>
-          <div class="stat-number" id="remainingCount">0</div>
-          <div class="stat-foot">Waiting for your attention</div>
-        </article>
+        <div class="stat-card blue">
+          <div class="stat-icon">◷</div>
+          <p>Study time</p>
+          <h2><span id="minutes-stat">0</span> min</h2>
+          <small>Total focus time</small>
+        </div>
 
-        <article class="stat-card mint">
-          <div class="stat-top"><span>Study time</span><span class="stat-icon">⌁</span></div>
-          <div class="stat-number"><span id="studyMinutes">0</span><small> min</small></div>
-          <div class="stat-foot">Total focus sessions</div>
-        </article>
+        <div class="stat-card orange">
+          <div class="stat-icon">🔥</div>
+          <p>Study streak</p>
+          <h2><span id="streak-stat">0</span> days</h2>
+          <small>Stay consistent</small>
+        </div>
 
-        <article class="stat-card blue">
-          <div class="stat-top"><span>Completion rate</span><span class="stat-icon">↗</span></div>
-          <div class="stat-number" id="completionRate">0<small>%</small></div>
-          <div class="stat-foot">Tasks you've checked off</div>
-        </article>
+        <div class="stat-card pink">
+          <div class="stat-icon">♡</div>
+          <p>Pet level</p>
+          <h2>Lv. <span id="level-stat">1</span></h2>
+          <small id="xp-stat">0 XP</small>
+        </div>
       </section>
 
       <div class="content-grid">
+
         <section class="panel tasks-panel" id="tasks">
-          <div class="panel-heading">
+          <div class="panel-header">
             <div>
-              <h2>Upcoming tasks</h2>
-              <p>Keep an eye on what needs doing.</p>
+              <h2>My Tasks</h2>
+              <p>Stay on top of your schoolwork.</p>
             </div>
-            <button class="primary-btn" id="addTaskBtn">＋ Add task</button>
+            <span class="badge" id="task-count">0 tasks</span>
           </div>
+
+          <form id="task-form" class="task-form">
+            <input id="task-input" type="text" placeholder="What do you need to do?" required>
+            <select id="task-subject">
+              <option value="General">General</option>
+              <option value="Mathematics">Mathematics</option>
+              <option value="English">English</option>
+              <option value="Science">Science</option>
+              <option value="Biology">Biology</option>
+              <option value="Chemistry">Chemistry</option>
+              <option value="Physics">Physics</option>
+              <option value="Economics">Economics</option>
+              <option value="Accounting">Accounting</option>
+              <option value="Other">Other</option>
+            </select>
+            <input id="task-date" type="date">
+            <button type="submit" class="primary-btn">+ Add</button>
+          </form>
 
           <div class="filters">
             <button class="filter active" data-filter="all">All</button>
-            <button class="filter" data-filter="active">To do</button>
-            <button class="filter" data-filter="done">Completed</button>
+            <button class="filter" data-filter="active">Pending</button>
+            <button class="filter" data-filter="completed">Completed</button>
           </div>
 
-          <div id="taskList" class="task-list"></div>
+          <div id="task-list" class="task-list"></div>
 
-          <div id="emptyState" class="empty-state hidden">
-            <div class="empty-illustration">✧</div>
-            <strong>You're all caught up!</strong>
-            <p>Add a task to get started.</p>
+          <div class="progress-section">
+            <div class="progress-label">
+              <span>Daily progress</span>
+              <strong id="progress-text">0%</strong>
+            </div>
+            <div class="progress-track">
+              <div id="progress-bar" class="progress-fill"></div>
+            </div>
           </div>
         </section>
 
-        <section class="panel progress-panel">
-          <div class="panel-heading">
+        <section class="panel planner-panel" id="planner">
+          <div class="panel-header">
             <div>
-              <h2>Your progress</h2>
-              <p>A little progress each day.</p>
+              <h2>Smart Planner</h2>
+              <p>What should you work on next?</p>
             </div>
-            <span class="progress-spark">✦</span>
+            <span class="planner-icon">✦</span>
           </div>
 
-          <div class="progress-ring-wrap">
-            <div class="progress-ring" id="progressRing">
-              <div class="ring-inner">
-                <strong id="ringPercent">0%</strong>
-                <span>completed</span>
-              </div>
-            </div>
+          <div class="planner-box">
+            <div class="planner-illustration">🗓️</div>
+            <h3>Let's plan your day</h3>
+            <p>We'll sort your tasks by deadline to help you decide what to focus on first.</p>
+            <button id="plan-btn" class="primary-btn wide">Create my plan ✦</button>
           </div>
 
-          <div class="progress-caption">
-            <strong id="progressMessage">Let's get started!</strong>
-            <span id="progressDetail">Your tasks will show here.</span>
-          </div>
-
-          <div class="legend">
-            <span><i class="legend-dot purple-dot"></i>Completed</span>
-            <span><i class="legend-dot grey-dot"></i>Remaining</span>
+          <div id="planner-result" class="planner-result">
+            <p>Add some tasks to get your study plan.</p>
           </div>
         </section>
 
         <section class="panel focus-panel" id="focus">
-          <div class="panel-heading">
+          <div class="panel-header">
             <div>
-              <h2>Focus time</h2>
-              <p>Take a moment to study.</p>
+              <h2>Focus Room</h2>
+              <p>Time to concentrate.</p>
             </div>
-            <span class="focus-icon">◷</span>
+            <span class="focus-icon">◉</span>
           </div>
 
-          <div class="timer-display" id="timerDisplay">25:00</div>
-          <div class="timer-caption" id="timerCaption">A little focus goes a long way.</div>
+          <div class="timer">
+            <div class="timer-ring">
+              <div class="timer-inner">
+                <span id="timer-display">25:00</span>
+                <small id="timer-label">Focus session</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="timer-modes">
+            <button class="timer-mode active" data-minutes="25">Focus</button>
+            <button class="timer-mode" data-minutes="15">Short</button>
+            <button class="timer-mode" data-minutes="5">Break</button>
+          </div>
 
           <div class="timer-controls">
-            <button class="primary-btn" id="timerStart">Start focus</button>
-            <button class="secondary-btn" id="timerReset">Reset</button>
+            <button id="timer-start" class="primary-btn">▶ Start</button>
+            <button id="timer-reset" class="secondary-btn">↺ Reset</button>
           </div>
 
-          <div class="timer-presets">
-            <button class="preset selected" data-minutes="25">25 min</button>
-            <button class="preset" data-minutes="15">15 min</button>
-            <button class="preset" data-minutes="5">5 min</button>
+          <p class="timer-note">Complete a focus session to earn XP for your pet!</p>
+        </section>
+
+        <section class="panel pet-panel" id="pet-section">
+          <div class="panel-header">
+            <div>
+              <h2>Your Study Pet</h2>
+              <p>A little companion for your study journey.</p>
+            </div>
+            <span class="pet-heart">♡</span>
+          </div>
+
+          <div class="pet-display">
+            <div id="pet-emoji" class="pet-emoji">🐰</div>
+            <h3 id="pet-name">Mochi</h3>
+            <p id="pet-message">I'm ready to study with you!</p>
+            <button id="rename-pet" class="secondary-btn">Rename pet</button>
+          </div>
+
+          <div class="xp-container">
+            <div class="xp-label">
+              <span>Level <span id="pet-level">1</span></span>
+              <span><span id="pet-xp">0</span> / 60 XP</span>
+            </div>
+            <div class="progress-track">
+              <div id="xp-bar" class="xp-fill"></div>
+            </div>
+          </div>
+
+          <div class="pet-reward">
+            <span>✨</span>
+            <p>Complete tasks and focus sessions to help your pet level up!</p>
           </div>
         </section>
 
-        <section class="panel tips-panel">
-          <div class="tip-badge">✦ STUDY TIP</div>
-          <h2>Focus on one thing at a time.</h2>
-          <p>Break big assignments into smaller steps. Getting started is often the hardest part — give yourself credit for every step.</p>
-          <div class="tip-footer">You've got this <span>♡</span></div>
-        </section>
       </div>
+
+      <footer>
+        <p>Made with ♡ for your learning journey.</p>
+        <small>StudyFlow</small>
+      </footer>
     </main>
   </div>
 
-  <dialog id="taskDialog">
-    <form id="taskForm" method="dialog">
-      <div class="modal-heading">
-        <div>
-          <div class="eyebrow">PLAN AHEAD</div>
-          <h2>Add a task</h2>
-        </div>
-        <button type="button" class="close-btn" id="closeDialog">×</button>
+  <dialog id="profile-dialog">
+    <div class="dialog-content">
+      <h2>Your Profile</h2>
+      <label for="name-input">Your display name</label>
+      <input id="name-input" maxlength="30" placeholder="Enter your name">
+      <div class="dialog-actions">
+        <button id="cancel-profile" class="secondary-btn">Cancel</button>
+        <button id="save-profile" class="primary-btn">Save</button>
       </div>
+    </div>
+  </dialog>
 
-      <label>
-        Task name
-        <input id="taskTitle" placeholder="e.g. Review algebra chapter 4" required maxlength="100">
-      </label>
-
-      <div class="form-row">
-        <label>
-          Subject
-          <input id="taskSubject" placeholder="e.g. Mathematics" maxlength="40">
-        </label>
-        <label>
-          Type
-          <select id="taskType">
-            <option>Assignment</option>
-            <option>Test</option>
-            <option>Study</option>
-            <option>Project</option>
-          </select>
-        </label>
+  <dialog id="pet-dialog">
+    <div class="dialog-content">
+      <h2>Rename your pet</h2>
+      <label for="pet-name-input">Pet's name</label>
+      <input id="pet-name-input" maxlength="20" placeholder="Enter a name">
+      <div class="dialog-actions">
+        <button id="cancel-pet" class="secondary-btn">Cancel</button>
+        <button id="save-pet" class="primary-btn">Save</button>
       </div>
-
-      <label>
-        Due date
-        <input id="taskDate" type="date">
-      </label>
-
-      <div class="modal-actions">
-        <button type="button" class="secondary-btn" id="cancelDialog">Cancel</button>
-        <button class="primary-btn" type="submit">Add to tasks</button>
-      </div>
-    </form>
+    </div>
   </dialog>
 
   <script src="script.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("service-worker.js")
+          .catch(err => console.log("Service worker:", err));
+      });
+    }
+  </script>
 </body>
 </html>

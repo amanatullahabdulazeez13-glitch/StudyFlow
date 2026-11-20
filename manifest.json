@@ -1,20 +1,20 @@
 
 {
-  "name": "StudyFlow - Student Planner",
+  "name": "StudyFlow",
   "short_name": "StudyFlow",
-  "description": "A student planner for assignments, tests and study sessions.",
+  "description": "Your personal study planner and productivity dashboard.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f8f7ff",
-  "theme_color": "#7c3aed",
   "orientation": "portrait",
+  "background_color": "#f7f6fc",
+  "theme_color": "#7c3aed",
   "icons": [
     {
-      "src": "./icon.svg",
+      "src": "icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
-  ]
+]
 }
