@@ -1,7 +1,6 @@
+const CACHE_NAME = "studyflow-3-0";
 
-const CACHE_NAME="studyflow-21";
-
-const FILES=[
+const FILES = [
   "./",
   "./index.html",
   "./style.css",
@@ -20,39 +19,29 @@ self.addEventListener("install",event=>{
 
 self.addEventListener("activate",event=>{
   event.waitUntil(
-    caches.keys().then(keys=>
-      Promise.all(
+    caches.keys().then(keys=>{
+      return Promise.all(
         keys.filter(key=>key!==CACHE_NAME)
           .map(key=>caches.delete(key))
-      )
-    ).then(()=>self.clients.claim())
+      );
+    }).then(()=>self.clients.claim())
   );
 });
 
 self.addEventListener("fetch",event=>{
-  if(event.request.method!=="GET") return;
+  if(event.request.method!=="GET")return;
 
   event.respondWith(
-    fetch(event.request).then(response=>{
-      if(response && response.ok){
-        const copy=response.clone();
-        caches.open(CACHE_NAME).then(cache=>{
-          cache.put(event.request,copy);
-        });
-      }
-      return response;
-    }).catch(()=>{
-      return caches.match(event.request)
-        .then(cached=>{
-          if(cached) return cached;
-          if(event.request.mode==="navigate"){
-            return caches.match("./index.html");
-          }
-          return new Response("Offline",{
-            status:503,
-            statusText:"Offline"
-          });
-        });
-    })
+    fetch(event.request)
+      .then(response=>{
+        if(response&&response.ok){
+          const copy=response.clone();
+          caches.open(CACHE_NAME).then(cache=>cache.put(event.request,copy));
+        }
+        return response;
+      })
+      .catch(()=>caches.match(event.request).then(cached=>{
+        return cached||caches.match("./index.html");
+      }))
   );
 });
