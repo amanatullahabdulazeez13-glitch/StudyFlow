@@ -1,12 +1,13 @@
 {
-  "name": "StudyFlow Ultimate Student Edition",
+  "name": "StudyFlow",
   "short_name": "StudyFlow",
-  "description": "Your personal school planner, focus tool and study companion.",
-  "start_url": "./index.html",
+  "description": "Your personal study planner and productivity companion",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#f6f5fc",
-  "theme_color": "#7968e8",
-  "orientation": "any",
+  "background_color": "#f7f7fc",
+  "theme_color": "#7666e8",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "icon.svg",
@@ -16,3 +17,4 @@
     }
   ]
 }
+
